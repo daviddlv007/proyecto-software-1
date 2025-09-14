@@ -1,0 +1,35 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.backup
+*.tfplan
+*.terraform.lock.hcl
+
+# AWS
+*.pem
+*.key
+
+# Editors
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+**/db.sqlite3
+
+# Docker
+*.log
+*.tmp
+docker-compose.override.yml
+
+# Angular - Node.js
+node_modules/
+dist/
+

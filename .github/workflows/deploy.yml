@@ -1,0 +1,128 @@
+name: CI/CD - Deploy Backend (prod)
+
+on:
+  workflow_run:
+    workflows: ["CI/CD - Build & Push Backend"]
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  # Imagen del backend
+  BACKEND_IMAGE: ghcr.io/${{ github.repository }}/backend
+  # URL del repo completo
+  GIT_URL: https://github.com/${{ github.repository }}.git
+  # Nombre del proyecto derivado del repo
+  PROJECT: ${{ github.repository }} # se extrae con basename luego
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v0.1.9
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -euo pipefail
+
+            PROJECT_NAME=$(basename "${{ github.repository }}")      # Extrae nombre del repo
+            REPO_DIR="/home/${{ secrets.EC2_USER }}/$PROJECT_NAME"   # Ruta de despliegue
+            BACKEND_IMAGE_FULL="${{ env.BACKEND_IMAGE }}:latest"     # Imagen backend desde env
+            GIT_URL="${{ env.GIT_URL }}"                              # URL repo dinámico
+            GHCR_TOKEN="${{ secrets.GHCR_TOKEN }}"
+
+            echo ">>> Directorio de despliegue: $REPO_DIR"
+
+            # Crear carpeta y asegurar permisos correctos
+            sudo mkdir -p "$REPO_DIR"
+            sudo chown -R ${{ secrets.EC2_USER }}:${{ secrets.EC2_USER }} "$REPO_DIR"
+
+            # Ejecutar script como usuario EC2, pasando TODAS las variables
+            sudo -i -u ${{ secrets.EC2_USER }} REPO_DIR="$REPO_DIR" BACKEND_IMAGE_FULL="$BACKEND_IMAGE_FULL" GHCR_TOKEN="$GHCR_TOKEN" GIT_URL="$GIT_URL" bash <<'EOF'
+            set -euo pipefail
+
+            echo ">>> Entrando a $REPO_DIR"
+            cd "$REPO_DIR"
+
+            # Clonar o actualizar solo carpeta infra con sparse-checkout
+            if [ ! -d ".git" ]; then
+                echo ">>> Inicializando git y sparse-checkout para infra..."
+                git init --initial-branch=main
+                git remote add origin "$GIT_URL"
+                git config core.sparseCheckout true
+                echo "infra/*" > .git/info/sparse-checkout
+                git fetch --depth=1 origin main
+                git checkout -b main origin/main
+            else
+                echo ">>> Actualizando carpeta infra..."
+                # Asegurar que existe el remote
+                if ! git remote | grep -q origin; then
+                    git remote add origin "$GIT_URL"
+                fi
+
+                git fetch origin main
+                git checkout main
+                git merge --ff-only origin/main
+                git sparse-checkout set infra
+            fi
+
+            # Verificar que infra/compose existe
+            if [ ! -d "infra/compose" ]; then
+                echo "ERROR: infra/compose no existe"
+                exit 1
+            fi
+            cd "infra/compose"
+
+            echo ">>> Generando .env dinámico"
+            cat > .env <<EENV
+            BACKEND_IMAGE=$BACKEND_IMAGE_FULL
+            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            DJANGO_SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}
+            DOMAIN=${{ secrets.DOMAIN }}
+            EENV
+
+            # Login a GHCR
+            echo ">>> Logueando a GHCR"
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Crear volúmenes si no existen
+            echo ">>> Creando volúmenes (si no existen)"
+            for vol in django_static_volume caddy_data caddy_config; do
+                docker volume inspect $vol >/dev/null 2>&1 || {
+                    docker volume create $vol
+                    echo "    - Volumen $vol creado"
+                }
+            done
+
+            echo ">>> Ajustando permisos de los volúmenes"
+            docker run --rm -v django_static_volume:/vol/django_static alpine chown -R 1000:1000 /vol/django_static
+            docker run --rm -v frontend_static_volume:/vol/frontend_static alpine chown -R 1000:1000 /vol/frontend_static
+            docker run --rm -v caddy_data:/data alpine chown -R 1000:1000 /data
+            docker run --rm -v caddy_config:/config alpine chown -R 1000:1000 /config
+                      
+            # Detener contenedores existentes
+            echo ">>> Deteniendo contenedores existentes"
+            docker compose -f docker-compose.prod.yml down || true
+
+            # Levantar servicios
+            echo ">>> Levantando servicios con Docker Compose"
+            docker compose -f docker-compose.prod.yml pull backend caddy
+            docker compose -f docker-compose.prod.yml up -d db backend caddy
+
+            # Limpiar imágenes antiguas
+            echo ">>> Limpiando imágenes antiguas"
+            docker image prune -af --filter 'until=24h' || true
+
+            # Estado backend
+            echo ">>> Estado backend:"
+            docker inspect -f '{{.State.Health.Status}}' $(docker ps --filter ancestor=$BACKEND_IMAGE_FULL --format '{{.Names}}' | head -n1) 2>/dev/null || echo "no-healthcheck"
+
+            echo ">>> Deploy finalizado."
+            EOF

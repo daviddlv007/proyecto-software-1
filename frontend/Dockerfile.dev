@@ -1,0 +1,16 @@
+FROM node:22.18.0  
+WORKDIR /app  
+
+# copiar package.json para cachear instalación
+COPY package*.json ./  
+
+# instalar dependencias (incluye @angular/cli si está en devDependencies)
+RUN npm ci  
+
+# copiar el resto del código
+COPY . .  
+
+EXPOSE 4200  
+
+# usar npx para ejecutar la versión local de ng (o la instalada)
+CMD ["npx", "ng", "serve", "--host", "0.0.0.0", "--port", "4200", "--poll", "2000"]

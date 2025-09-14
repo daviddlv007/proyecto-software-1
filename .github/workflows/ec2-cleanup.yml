@@ -1,0 +1,43 @@
+name: Cleanup EC2 - Eliminar Bootstrap
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup-ec2:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Limpiar EC2
+        uses: appleboy/ssh-action@v0.1.9
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -euo pipefail
+
+            echo "=== Deteniendo Docker y contenedores ==="
+            sudo docker compose down --rmi all --volumes --remove-orphans || true
+            sudo systemctl stop docker || true
+
+            echo "=== Limpiando contenedores, imágenes y volúmenes ==="
+            sudo docker container prune -f || true
+            sudo docker image prune -af || true
+            sudo docker volume prune -f || true
+            sudo docker network prune -f || true
+
+            echo "=== Desinstalando Docker y Docker Compose ==="
+            sudo dnf -y remove docker || true
+            sudo rm -f /usr/local/lib/docker/cli-plugins/docker-compose
+            sudo rm -f /usr/local/bin/docker-compose
+
+            echo "=== Quitando usuario del grupo docker ==="
+            sudo gpasswd -d $USER docker || true
+
+            echo "=== Limpiando Git instalado ==="
+            sudo dnf -y remove git || true
+
+            echo "=== Limpieza de bootstrap completa ==="

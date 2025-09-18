@@ -1,0 +1,94 @@
+openapi: 3.0.0
+info:
+  title: API de Práctica de Habla
+  version: 1.0.0
+
+components:
+  schemas:
+    Usuario:
+      type: object
+      properties:
+        id: { type: integer }
+        nombreUsuario: { type: string }
+        email: { type: string }
+      required: [id, nombreUsuario, email]
+
+    UsuarioInput:
+      type: object
+      properties:
+        nombreUsuario: { type: string }
+        email: { type: string }
+      required: [nombreUsuario, email]
+
+    Practica:
+      type: object
+      properties:
+        id: { type: integer }
+        usuarioId:
+          type: integer
+          x-foreign-key: Usuario.id
+        archivoAudio: { type: string }
+        transcripcion: { type: string }
+        puntajeFluidez: { type: number }
+        muletillas: { type: integer }
+      required: [id, usuarioId, archivoAudio]
+
+    PracticaInput:
+      type: object
+      properties:
+        usuarioId: { type: integer }
+        archivoAudio: { type: string }
+      required: [usuarioId, archivoAudio]
+
+    PlanSemanal:
+      type: object
+      properties:
+        id: { type: integer }
+        usuarioId:
+          type: integer
+          x-foreign-key: Usuario.id
+        ejercicios: 
+          type: array
+          items: { type: string }
+        semanaInicio: { type: string, format: date }
+      required: [id, usuarioId, ejercicios, semanaInicio]
+
+    PlanSemanalInput:
+      type: object
+      properties:
+        usuarioId: { type: integer }
+        ejercicios: 
+          type: array
+          items: { type: string }
+        semanaInicio: { type: string, format: date }
+      required: [usuarioId, ejercicios, semanaInicio]
+
+    Logro:
+      type: object
+      properties:
+        id: { type: integer }
+        usuarioId:
+          type: integer
+          x-foreign-key: Usuario.id
+        nombre: { type: string }
+        descripcion: { type: string }
+        fechaObtenido: { type: string, format: date }
+      required: [id, usuarioId, nombre, fechaObtenido]
+
+    LogroInput:
+      type: object
+      properties:
+        usuarioId: { type: integer }
+        nombre: { type: string }
+        descripcion: { type: string }
+        fechaObtenido: { type: string, format: date }
+      required: [usuarioId, nombre, fechaObtenido]
+
+    Error:
+      type: object
+      properties:
+        tipo: { type: string }
+        titulo: { type: string }
+        estado: { type: integer }
+        detalle: { type: string }
+      required: [tipo, titulo, estado, detalle]

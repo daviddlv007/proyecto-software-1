@@ -1,0 +1,40 @@
+services:
+  backend:
+    build:
+      context: ../../../backend
+      dockerfile: Dockerfile.dev
+    image: ${BACKEND_IMAGE}
+    ports:
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
+    volumes:
+      - ../../../backend:/app
+      - ../../../contracts/api.yaml:/app/contracts/api.yaml:ro
+
+  frontend:
+    build:
+      context: ../../../frontend
+      dockerfile: Dockerfile.dev
+    image: ${FRONTEND_IMAGE}
+    ports:
+      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
+    volumes:
+      - ../../../frontend:/app
+      - ../../../contracts/api.yaml:/app/contracts/api.yaml:ro
+      - /app/node_modules
+
+  mock:
+    image: stoplight/prism:4
+    command: ["mock", "/app/contracts/api.yaml", "--dynamic", "--port", "4010", "--host", "0.0.0.0"]
+    volumes:
+      - ../../../contracts:/app/contracts:ro
+    ports:
+      - "4010:4010"
+
+  swagger-ui:
+    image: swaggerapi/swagger-ui:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../../../contracts/api.yaml:/app/swagger/swagger.yaml:ro
+    environment:
+      - SWAGGER_JSON=/app/swagger/swagger.yaml

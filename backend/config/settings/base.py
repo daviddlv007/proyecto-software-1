@@ -11,15 +11,7 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-secret-key")
 DEBUG = False
 ALLOWED_HOSTS = []
 
-# Aplicaciones
-INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-]
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',

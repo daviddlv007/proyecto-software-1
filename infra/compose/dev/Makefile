@@ -90,6 +90,7 @@ rebuild-backend:
 	$(COMPOSE_CMD) build --no-cache backend
 
 
+
 # ==========================================
 # MIGRACIONES DJANGO
 # ==========================================
@@ -131,6 +132,17 @@ reset-db:
 	@echo "🔹 Aplicando migrate..."
 	@$(COMPOSE_CMD) exec backend python manage.py migrate
 
+
+
+# ==========================================
+# COMANDOS SCRIPTS
+# ==========================================
+
+# Abre un shell interactivo en un contenedor nuevo del scripts
+run-scripts:
+	$(COMPOSE_CMD) run --rm scripts bash
+
+	
 # ==========================================
 # UTILIDADES
 # ==========================================
@@ -139,3 +151,8 @@ reset-db:
 show-urls:
 	@echo "Frontend: http://localhost:$(FRONTEND_PORT)"
 	@echo "Backend:  http://localhost:$(BACKEND_PORT)/admin/"
+
+
+# Levanta todos los contenedores excepto el mock
+up-no-mock:
+	$(COMPOSE_CMD) up -d --build backend frontend scripts swagger-ui

@@ -22,6 +22,18 @@ services:
       - ../../../contracts/api.yaml:/app/contracts/api.yaml:ro
       - /app/node_modules
 
+  scripts:
+    build:
+      context: ../../../scripts
+      dockerfile: Dockerfile.dev
+    image: ${SCRIPTS_IMAGE}
+    volumes:
+      - ../../../scripts:/app
+      - ../../../contracts:/app/contracts:ro
+      - ../../../backend:/app/backend
+      - ../../../frontend:/app/frontend
+
+
   mock:
     image: stoplight/prism:4
     command: ["mock", "/app/contracts/api.yaml", "--dynamic", "--port", "4010", "--host", "0.0.0.0"]

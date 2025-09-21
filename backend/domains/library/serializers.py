@@ -1,30 +1,20 @@
 from rest_framework import serializers
-from .models import Usuario, Practica, PlanSemanal, Logro
+from .models import User, Profile, Product
 
-class UsuarioSerializer(serializers.ModelSerializer):
-    nombreUsuario = serializers.CharField(source='nombre_usuario')
+class UserSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Usuario
-        fields = ['id', 'nombreUsuario', 'email']
+        model = User
+        fields = ['id', 'username', 'email']
 
-class PracticaSerializer(serializers.ModelSerializer):
-    usuarioId = serializers.PrimaryKeyRelatedField(source='usuario_id', queryset=Usuario.objects.all())
-    archivoAudio = serializers.CharField(source='archivo_audio')
-    puntajeFluidez = serializers.FloatField(source='puntaje_fluidez')
+class ProfileSerializer(serializers.ModelSerializer):
+    userId = serializers.PrimaryKeyRelatedField(source='user_id', queryset=User.objects.all())
+    fullName = serializers.CharField(source='full_name', max_length=200)
     class Meta:
-        model = Practica
-        fields = ['id', 'usuarioId', 'archivoAudio', 'transcripcion', 'puntajeFluidez', 'muletillas']
+        model = Profile
+        fields = ['id', 'userId', 'fullName', 'age']
 
-class PlanSemanalSerializer(serializers.ModelSerializer):
-    usuarioId = serializers.PrimaryKeyRelatedField(source='usuario_id', queryset=Usuario.objects.all())
-    semanaInicio = serializers.CharField(source='semana_inicio')
+class ProductSerializer(serializers.ModelSerializer):
+    isAvailable = serializers.BooleanField(source='is_available')
     class Meta:
-        model = PlanSemanal
-        fields = ['id', 'usuarioId', 'ejercicios', 'semanaInicio']
-
-class LogroSerializer(serializers.ModelSerializer):
-    usuarioId = serializers.PrimaryKeyRelatedField(source='usuario_id', queryset=Usuario.objects.all())
-    fechaObtenido = serializers.CharField(source='fecha_obtenido')
-    class Meta:
-        model = Logro
-        fields = ['id', 'usuarioId', 'nombre', 'descripcion', 'fechaObtenido']
+        model = Product
+        fields = ['id', 'name', 'price', 'isAvailable']

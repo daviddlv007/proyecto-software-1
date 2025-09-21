@@ -1,0 +1,15 @@
+import { Routes } from '@angular/router';
+
+{% for name in entities %}
+import { %% name %%ListPage } from './pages/%% name %%/%% name %%.list.page';
+import { %% name %%CreatePage } from './pages/%% name %%/%% name %%.create.page';
+import { %% name %%EditPage } from './pages/%% name %%/%% name %%.edit.page';
+{% endfor %}
+
+export const featureRoutes: Routes = [
+{% for name in entities %}
+  { path: '%% name | lower %%', component: %% name %%ListPage },
+  { path: '%% name | lower %%/create', component: %% name %%CreatePage },
+  { path: '%% name | lower %%/edit/:id', component: %% name %%EditPage },
+{% endfor %}
+];

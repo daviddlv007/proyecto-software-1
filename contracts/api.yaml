@@ -1,478 +1,57 @@
 openapi: 3.0.0
 info:
-  title: API de Práctica de Habla
+  title: Test API
   version: 1.0.0
-
-paths:
-  # --- Usuarios ---
-  /usuarios/:
-    get:
-      summary: Listar todos los usuarios
-      responses:
-        '200':
-          description: Lista de usuarios
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Usuario'
-    post:
-      summary: Crear un nuevo usuario
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UsuarioInput'
-      responses:
-        '201':
-          description: Usuario creado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Usuario'
-
-  /usuarios/{id}/:
-    get:
-      summary: Obtener usuario por ID
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: Usuario encontrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Usuario'
-    put:
-      summary: Actualizar usuario completamente
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UsuarioInput'
-      responses:
-        '200':
-          description: Usuario actualizado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Usuario'
-    patch:
-      summary: Actualizar usuario parcialmente
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UsuarioInput'
-      responses:
-        '200':
-          description: Usuario actualizado parcialmente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Usuario'
-    delete:
-      summary: Eliminar usuario
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        '204':
-          description: Usuario eliminado
-
-  # --- Prácticas ---
-  /practicas/:
-    get:
-      summary: Listar todas las prácticas
-      responses:
-        '200':
-          description: Lista de prácticas
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Practica'
-    post:
-      summary: Crear una práctica
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PracticaInput'
-      responses:
-        '201':
-          description: Práctica creada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Practica'
-
-  /practicas/{id}/:
-    get:
-      summary: Obtener práctica por ID
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: Práctica encontrada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Practica'
-    put:
-      summary: Actualizar práctica completamente
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PracticaInput'
-      responses:
-        '200':
-          description: Práctica actualizada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Practica'
-    patch:
-      summary: Actualizar práctica parcialmente
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PracticaInput'
-      responses:
-        '200':
-          description: Práctica actualizada parcialmente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Practica'
-    delete:
-      summary: Eliminar práctica
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        '204':
-          description: Práctica eliminada
-
-  # --- Planes Semanales ---
-  /planes/:
-    get:
-      summary: Listar planes semanales
-      responses:
-        '200':
-          description: Lista de planes
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PlanSemanal'
-    post:
-      summary: Crear un plan semanal
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PlanSemanalInput'
-      responses:
-        '201':
-          description: Plan creado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PlanSemanal'
-
-  /planes/{id}/:
-    get:
-      summary: Obtener plan por ID
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: Plan encontrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PlanSemanal'
-    put:
-      summary: Actualizar plan completamente
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PlanSemanalInput'
-      responses:
-        '200':
-          description: Plan actualizado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PlanSemanal'
-    patch:
-      summary: Actualizar plan parcialmente
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PlanSemanalInput'
-      responses:
-        '200':
-          description: Plan actualizado parcialmente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PlanSemanal'
-    delete:
-      summary: Eliminar plan
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        '204':
-          description: Plan eliminado
-
-  # --- Logros ---
-  /logros/:
-    get:
-      summary: Listar logros
-      responses:
-        '200':
-          description: Lista de logros
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Logro'
-    post:
-      summary: Crear un logro
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LogroInput'
-      responses:
-        '201':
-          description: Logro creado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Logro'
-
-  /logros/{id}/:
-    get:
-      summary: Obtener logro por ID
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: Logro encontrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Logro'
-    put:
-      summary: Actualizar logro completamente
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LogroInput'
-      responses:
-        '200':
-          description: Logro actualizado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Logro'
-    patch:
-      summary: Actualizar logro parcialmente
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LogroInput'
-      responses:
-        '200':
-          description: Logro actualizado parcialmente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Logro'
-    delete:
-      summary: Eliminar logro
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        '204':
-          description: Logro eliminado
 
 components:
   schemas:
-    Usuario:
+    # 1️⃣ Entidad simple con id
+    User:
       type: object
       properties:
         id: { type: integer }
-        nombreUsuario: { type: string }
-        email: { type: string }
-      required: [id, nombreUsuario, email]
+        username: { type: string, maxLength: 150 }
+        email: { type: string, maxLength: 255 }
+      required: [id, username, email]
 
-    UsuarioInput:
-      type: object
-      properties:
-        nombreUsuario: { type: string }
-        email: { type: string }
-      required: [nombreUsuario, email]
-
-    Practica:
+    # 2️⃣ Entidad con FK y camelCase
+    Profile:
       type: object
       properties:
         id: { type: integer }
-        usuarioId:
+        userId:
           type: integer
-          x-foreign-key: Usuario.id
-        archivoAudio: { type: string }
-        transcripcion: { type: string }
-        puntajeFluidez: { type: number }
-        muletillas: { type: integer }
-      required: [id, usuarioId, archivoAudio]
+          description: FK hacia User
+          x-foreign-key: User.id
+        fullName: { type: string, maxLength: 200 }
+        age: { type: integer }
+      required: [id, userId, fullName]
 
-    PracticaInput:
-      type: object
-      properties:
-        usuarioId: { type: integer }
-        archivoAudio: { type: string }
-      required: [usuarioId, archivoAudio]
-
-    PlanSemanal:
+    # 3️⃣ Entidad con boolean y number
+    Product:
       type: object
       properties:
         id: { type: integer }
-        usuarioId:
-          type: integer
-          x-foreign-key: Usuario.id
-        ejercicios: 
-          type: array
-          items: { type: string }
-      required: [id, usuarioId, ejercicios]
+        name: { type: string }
+        price: { type: number }
+        isAvailable: { type: boolean }
+      required: [id, name, price, isAvailable]
 
-    PlanSemanalInput:
+    # 4️⃣ Input → debe ignorarse
+    ProductInput:
       type: object
       properties:
-        usuarioId: { type: integer }
-        ejercicios: 
-          type: array
-          items: { type: string }
-      required: [usuarioId, ejercicios]
+        name: { type: string }
+        price: { type: number }
+        isAvailable: { type: boolean }
+      required: [name, price, isAvailable]
 
-    Logro:
+    # 5️⃣ Error → debe ignorarse
+    Error:
       type: object
       properties:
-        id: { type: integer }
-        usuarioId:
-          type: integer
-          x-foreign-key: Usuario.id
-        descripcion: { type: string }
-        fecha: { type: string, format: date }
-      required: [id, usuarioId, descripcion, fecha]
-
-    LogroInput:
-      type: object
-      properties:
-        usuarioId: { type: integer }
-        descripcion: { type: string }
-        fecha: { type: string, format: date }
-      required: [usuarioId, descripcion, fecha]
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+      required: [type, title, status, detail]

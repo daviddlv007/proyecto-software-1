@@ -1,19 +1,15 @@
 from rest_framework import viewsets
-from .models import Usuario, Practica, PlanSemanal, Logro
-from .serializers import UsuarioSerializer, PracticaSerializer, PlanSemanalSerializer, LogroSerializer
+from .models import User, Profile, Product
+from .serializers import UserSerializer, ProfileSerializer, ProductSerializer
 
-class UsuarioViewSet(viewsets.ModelViewSet):
-    queryset = Usuario.objects.all()
-    serializer_class = UsuarioSerializer
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
 
-class PracticaViewSet(viewsets.ModelViewSet):
-    queryset = Practica.objects.all()
-    serializer_class = PracticaSerializer
+class ProfileViewSet(viewsets.ModelViewSet):
+    queryset = Profile.objects.all()
+    serializer_class = ProfileSerializer
 
-class PlanSemanalViewSet(viewsets.ModelViewSet):
-    queryset = PlanSemanal.objects.all()
-    serializer_class = PlanSemanalSerializer
-
-class LogroViewSet(viewsets.ModelViewSet):
-    queryset = Logro.objects.all()
-    serializer_class = LogroSerializer
+class ProductViewSet(viewsets.ModelViewSet):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer

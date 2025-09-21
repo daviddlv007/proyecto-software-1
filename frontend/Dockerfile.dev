@@ -2,11 +2,6 @@ FROM node:22.18.0
 WORKDIR /app  
 
 
-# Instalar Java (OpenJDK 17) necesario para OpenAPI Generator
-RUN apt-get update && \
-    apt-get install -y openjdk-17-jre && \
-    rm -rf /var/lib/apt/lists/*
-
 
 # copiar package.json para cachear instalación
 COPY package*.json ./  

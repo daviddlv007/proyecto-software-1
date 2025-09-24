@@ -1,4 +1,4 @@
-project_name  = "proyecto-software-1"
+project_name  = "proyecto-grupal-sw1"
 aws_region    = "us-east-1"
 ami           = "ami-00ca32bbc84273381"
 instance_type = "t2.micro"

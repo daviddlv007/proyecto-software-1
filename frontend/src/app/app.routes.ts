@@ -7,6 +7,8 @@ import { AppLayoutComponent } from './layouts/app-layout.component';
 
 // Rutas del feature-1
 import { featureRoutes } from './features/feature-1/feature-1.routes';
+import { boardRoutes} from './features/board/board.routes';
+
 
 export const routes: Routes = [
   {
@@ -18,6 +20,8 @@ export const routes: Routes = [
 
       // Rutas del feature-1
       ...featureRoutes,
+
+      ...boardRoutes,
 
       // Redirección raíz
       { path: '', redirectTo: 'home', pathMatch: 'full' }

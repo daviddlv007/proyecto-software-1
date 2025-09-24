@@ -156,3 +156,7 @@ show-urls:
 # Levanta todos los contenedores excepto el mock
 up-no-mock:
 	$(COMPOSE_CMD) up -d --build backend frontend scripts swagger-ui
+
+# Hace a ubuntu dueño del directorio actual
+chown-dir:
+	sudo chown -R ubuntu:ubuntu ./

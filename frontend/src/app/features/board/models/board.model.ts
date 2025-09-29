@@ -14,12 +14,13 @@ export interface ClassNode {
 
 export interface RelationEdge {
   id: string;
-  type: 'association' | 'inheritance' | 'composition' | 'aggregation'| 'dependency';
+  type: 'asociación' | 'herencia' | 'composición' | 'agregación' | 'dependencia';
   originId: string;
   targetId: string;
   originMultiplicity?: string;
   targetMultiplicity?: string;
 }
+
 
 
 

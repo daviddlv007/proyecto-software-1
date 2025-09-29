@@ -74,7 +74,7 @@ import { BoardStorageService } from '../data-access/board-storage.service';
 
     <div class="toolbar-group">
       <button class="toolbar-btn btn-warning" (click)="checkDiagram()" [disabled]="!boardEnabled">
-        <i class="icon">✔</i> Analizar Diagrama
+        <i class="icon">✔</i> Analizar
       </button>
     </div>
 
@@ -119,17 +119,17 @@ import { BoardStorageService } from '../data-access/board-storage.service';
       
       <g *ngFor="let r of d.relations; let i = index">
         <line [attr.x1]="x1(r,i)" [attr.y1]="y1(r,i)" [attr.x2]="x2(r,i)" [attr.y2]="y2(r,i)"
-              stroke="black" [attr.stroke-dasharray]="r.type==='dependency'?'5,5':null" stroke-width="2"></line>
-        <g *ngIf="r.type === 'inheritance'" [attr.transform]="'translate(' + x2(r,i) + ',' + y2(r,i) + ') rotate(' + angle(r,i) + ')'">
+              stroke="black" [attr.stroke-dasharray]="r.type==='dependencia'?'5,5':null" stroke-width="2"></line>
+        <g *ngIf="r.type === 'herencia'" [attr.transform]="'translate(' + x2(r,i) + ',' + y2(r,i) + ') rotate(' + angle(r,i) + ')'">
           <polygon points="0,0 -14,-7 -14,7" fill="white" stroke="black" stroke-width="2"></polygon>
         </g>
-        <g *ngIf="r.type === 'composition'" [attr.transform]="'translate(' + x1(r,i) + ',' + y1(r,i) + ') rotate(' + angle(r,i) + ')'">
+        <g *ngIf="r.type === 'composición'" [attr.transform]="'translate(' + x1(r,i) + ',' + y1(r,i) + ') rotate(' + angle(r,i) + ')'">
           <polygon points="0,0 10,-5 20,0 10,5" fill="black" stroke="black" stroke-width="1"></polygon>
         </g>
-        <g *ngIf="r.type === 'aggregation'" [attr.transform]="'translate(' + x1(r,i) + ',' + y1(r,i) + ') rotate(' + angle(r,i) + ')'">
+        <g *ngIf="r.type === 'agregación'" [attr.transform]="'translate(' + x1(r,i) + ',' + y1(r,i) + ') rotate(' + angle(r,i) + ')'">
           <polygon points="0,0 10,-5 20,0 10,5" fill="white" stroke="black" stroke-width="1"></polygon>
         </g>
-        <g *ngIf="r.type === 'dependency'" [attr.transform]="'translate(' + x2(r,i) + ',' + y2(r,i) + ') rotate(' + angle(r,i) + ')'">
+        <g *ngIf="r.type === 'dependencia'" [attr.transform]="'translate(' + x2(r,i) + ',' + y2(r,i) + ') rotate(' + angle(r,i) + ')'">
           <polyline points="0,0 -10,-5 0,0 -10,5" fill="none" stroke="black" stroke-width="2"></polyline>
         </g>
       </g>
@@ -191,7 +191,7 @@ import { BoardStorageService } from '../data-access/board-storage.service';
 
       <foreignObject *ngIf="relO && menu" [attr.x]="relO.x + classWidth + 10" [attr.y]="relO.y" width="140" height="150">
         <div class="relation-menu">
-          <button *ngFor="let t of relationTypes" (click)="setType(t)" [disabled]="!boardEnabled" class="relation-type-btn">{{ t }}</button>
+          <button *ngFor="let t of relationTypes" (click)="setType(t)" [disabled]="!boardEnabled" class="relation-type-btn">{{ getRelationTypeDisplayName(t) }}</button>
           <button (click)="cancel()" class="relation-cancel-btn">Cancelar</button>
         </div>
       </foreignObject>
@@ -620,16 +620,7 @@ import { BoardStorageService } from '../data-access/board-storage.service';
       color: #c53030;
       margin-top: 2px;
     }
-.btn-info {
-  background: #0bc5ea;
-  color: white;
-  border-color: #0bc5ea;
-}
 
-.btn-info:hover:not(:disabled) {
-  background: #0ab1d1;
-  border-color: #0ab1d1;
-}
     /* Estados deshabilitados */
     button:disabled { 
       opacity: 0.5; 
@@ -646,7 +637,8 @@ import { BoardStorageService } from '../data-access/board-storage.service';
 export class BoardPageComponent implements OnInit, AfterViewInit, OnDestroy {
   d: BoardDiagram = { classes: [], relations: [] };
   types: Attribute['type'][] = ['String', 'Integer', 'Real', 'Boolean', 'Date'];
-  relationTypes: RelationEdge['type'][] = ['association','inheritance','composition','aggregation','dependency'];
+  // Relaciones en español para la interfaz, pero manteniendo los valores internos en inglés
+  relationTypes: RelationEdge['type'][] = ['asociación','herencia','composición','agregación','dependencia'];
   drag: ClassNode | null = null;
   offX = 0; offY = 0;
   svg!: SVGSVGElement;
@@ -735,6 +727,18 @@ get canRedo(): boolean {
     this.autoSaveTimeout = setTimeout(() => {
       this.sync();
     }, 500);
+  }
+
+  // Método para obtener el nombre de visualización de los tipos de relación
+  getRelationTypeDisplayName(type: RelationEdge['type']): string {
+    const displayNames: { [key in RelationEdge['type']]: string } = {
+      'asociación': 'Asociación',
+      'herencia': 'Herencia',
+      'composición': 'Composición',
+      'agregación': 'Agregación',
+      'dependencia': 'Dependencia'
+    };
+    return displayNames[type] || type;
   }
 
   // Métodos auxiliares para cálculos de posición
@@ -837,7 +841,7 @@ get canRedo(): boolean {
     if(this.relO && this.type && this.relO.id!==n.id) {
       this.saveHistory();
       const id = 'r'+(Math.max(0,...this.d.relations.map(r=>+r.id.slice(1)))+1);
-      const multiplicities = this.type==='inheritance' ? { originMultiplicity:'1', targetMultiplicity:'1' } : { originMultiplicity:'1', targetMultiplicity:'*' };
+      const multiplicities = this.type==='herencia' ? { originMultiplicity:'1', targetMultiplicity:'1' } : { originMultiplicity:'1', targetMultiplicity:'*' };
       this.d.relations.push({id, type:this.type, originId:this.relO.id, targetId:n.id, ...multiplicities});
       this.relO = this.type = null;
       this.onDiagramChange();
@@ -1053,7 +1057,7 @@ zoom(factor: number) {
           if (parentId && childId && classMap.has(parentId) && classMap.has(childId)) {
             diagram.relations.push({
               id: `r${relationCount++}`,
-              type: 'inheritance',
+              type: 'herencia',
               originId: childId,
               targetId: parentId,
               originMultiplicity: '1',
@@ -1075,15 +1079,15 @@ zoom(factor: number) {
             const aggregation2 = end2.getAttribute('aggregation');
 
             if (type1 && type2 && classMap.has(type1) && classMap.has(type2)) {
-              let type: RelationEdge['type'] = 'association';
+              let type: RelationEdge['type'] = 'asociación';
               let originId = type1;
               let targetId = type2;
 
               if (aggregation1 === 'composite' || aggregation2 === 'composite') {
-                type = 'composition';
+                type = 'composición';
                 if (aggregation1 === 'composite') [originId, targetId] = [type2, type1];
               } else if (aggregation1 === 'shared' || aggregation2 === 'shared') {
-                type = 'aggregation';
+                type = 'agregación';
                 if (aggregation1 === 'shared') [originId, targetId] = [type2, type1];
               }
 
@@ -1107,7 +1111,7 @@ zoom(factor: number) {
           if (clientId && supplierId && classMap.has(clientId) && classMap.has(supplierId)) {
             diagram.relations.push({
               id: `r${relationCount++}`,
-              type: 'dependency',
+              type: 'dependencia',
               originId: clientId,
               targetId: supplierId,
               originMultiplicity: '1',
@@ -1121,7 +1125,8 @@ zoom(factor: number) {
       return { classes: [], relations: [] };
     }
   }
-  // AGREGAR este método en la clase:
+
+    // AGREGAR este método en la clase:
 invite() {
   if (!this.boardEnabled) return;
   

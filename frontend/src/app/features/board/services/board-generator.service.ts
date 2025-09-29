@@ -103,8 +103,9 @@ ${relationFields}
   private generateForeignKeys(cls: ClassNode, diagram: BoardDiagram): string {
     let result = '';
 
-    const incomingRelations = diagram.relations.filter(r => r.targetId === cls.id && r.type === 'association');
-
+    const incomingRelations = diagram.relations.filter(
+  r => r.targetId === cls.id && ['asociación', 'agregación', 'composición', 'herencia'].includes(r.type)
+);
     incomingRelations.forEach(rel => {
       const originClass = diagram.classes.find(c => c.id === rel.originId);
       if (originClass) {

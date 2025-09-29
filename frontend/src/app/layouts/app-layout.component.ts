@@ -21,13 +21,8 @@ import { CommonModule } from '@angular/common';
       <aside class="sidebar" [class.closed]="!sidebarOpen()">
         <h2>Menú</h2>
         <ul>
-          
-          <li><a routerLink="/user">User List</a></li>
-          
-          <li><a routerLink="/profile">Profile List</a></li>
-          
-          <li><a routerLink="/product">Product List</a></li>
-          
+          <li><a routerLink="/">Home</a></li>
+          <li><a routerLink="/board/1">Board 1</a></li>
         </ul>
       </aside>
 

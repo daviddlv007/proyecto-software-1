@@ -13,7 +13,7 @@ import { BoardStorageService } from '../data-access/board-storage.service';
 <div class="board-container">
   <!-- Header Section -->
   <div class="header">
-    <h2 class="title">Pizarra UML (Anfitrión)</h2>
+    <h2 class="title">Pizarra UML (Invitado)</h2>
     
     <!-- Board Status Control -->
     <div class="status-control">
@@ -23,14 +23,6 @@ import { BoardStorageService } from '../data-access/board-storage.service';
           {{ boardEnabled ? 'HABILITADA' : 'DESHABILITADA' }}
         </span>
       </div>
-      <button 
-        class="toggle-btn"
-        (click)="toggleBoard()" 
-        [class.btn-danger]="boardEnabled"
-        [class.btn-success]="!boardEnabled"
-        [disabled]="!isAdmin">
-        {{ boardEnabled ? 'Deshabilitar' : 'Habilitar' }} Pizarra
-      </button>
       <div *ngIf="!isAdmin" class="admin-notice">
         <i class="icon-info">ℹ️</i> Solo los administradores pueden cambiar el estado
       </div>
@@ -40,9 +32,6 @@ import { BoardStorageService } from '../data-access/board-storage.service';
   <!-- Toolbar Section -->
   <div class="toolbar">
     <div class="toolbar-group">
-<button class="toolbar-btn btn-info" (click)="invite()" [disabled]="!boardEnabled">
-  <i class="icon">📨</i> Invitar
-</button>
       <button class="toolbar-btn btn-secondary" (click)="gen()" [disabled]="!boardEnabled">
         <i class="icon">⚡</i> Generar
       </button>
@@ -74,7 +63,7 @@ import { BoardStorageService } from '../data-access/board-storage.service';
 
     <div class="toolbar-group">
       <button class="toolbar-btn btn-warning" (click)="checkDiagram()" [disabled]="!boardEnabled">
-        <i class="icon">✔</i> Analizar Diagrama
+        <i class="icon">✔</i> Analizar
       </button>
     </div>
 
@@ -620,16 +609,7 @@ import { BoardStorageService } from '../data-access/board-storage.service';
       color: #c53030;
       margin-top: 2px;
     }
-.btn-info {
-  background: #0bc5ea;
-  color: white;
-  border-color: #0bc5ea;
-}
 
-.btn-info:hover:not(:disabled) {
-  background: #0ab1d1;
-  border-color: #0ab1d1;
-}
     /* Estados deshabilitados */
     button:disabled { 
       opacity: 0.5; 
@@ -643,7 +623,7 @@ import { BoardStorageService } from '../data-access/board-storage.service';
     }`
   ]
 })
-export class BoardPageComponent implements OnInit, AfterViewInit, OnDestroy {
+export class BoardPageGuestComponent implements OnInit, AfterViewInit, OnDestroy {
   d: BoardDiagram = { classes: [], relations: [] };
   types: Attribute['type'][] = ['String', 'Integer', 'Real', 'Boolean', 'Date'];
   relationTypes: RelationEdge['type'][] = ['association','inheritance','composition','aggregation','dependency'];
@@ -1121,47 +1101,4 @@ zoom(factor: number) {
       return { classes: [], relations: [] };
     }
   }
-  // AGREGAR este método en la clase:
-invite() {
-  if (!this.boardEnabled) return;
-  
-  // Construir la URL base - puedes ajustar esto según tu configuración
-  const baseUrl = window.location.origin;
-  const guestUrl = `${baseUrl}/board-guest/1`;
-  
-  // Copiar al portapapeles
-  navigator.clipboard.writeText(guestUrl)
-    .then(() => {
-      // Mostrar feedback visual (opcional)
-      console.log('Enlace copiado al portapapeles:', guestUrl);
-      alert('¡Enlace de invitación copiado al portapapeles!');
-    })
-    .catch(err => {
-      console.error('Error al copiar al portapapeles:', err);
-      // Fallback para navegadores que no soportan clipboard API
-      this.fallbackCopyToClipboard(guestUrl);
-    });
-}
-
-// AGREGAR método de fallback para navegadores antiguos
-private fallbackCopyToClipboard(text: string) {
-  const textArea = document.createElement('textarea');
-  textArea.value = text;
-  textArea.style.position = 'fixed';
-  textArea.style.left = '-999999px';
-  textArea.style.top = '-999999px';
-  document.body.appendChild(textArea);
-  textArea.focus();
-  textArea.select();
-  
-  try {
-    document.execCommand('copy');
-    alert('¡Enlace de invitación copiado al portapapeles!');
-  } catch (err) {
-    console.error('Fallback copy failed:', err);
-    alert('Error al copiar el enlace. Por favor, copia manualmente: ' + text);
-  }
-  
-  document.body.removeChild(textArea);
-}
 }

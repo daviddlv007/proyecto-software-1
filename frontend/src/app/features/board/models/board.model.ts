@@ -23,7 +23,15 @@ export interface RelationEdge {
 
 
 
+// En tu archivo board.model.ts, agrega:
+export interface BoardConfig {
+  id: string;
+  enabled: boolean;
+  updated_at: string;
+}
+
 export interface BoardDiagram {
   classes: ClassNode[];
   relations: RelationEdge[];
+  enabled?: boolean; // Opcional para compatibilidad
 }

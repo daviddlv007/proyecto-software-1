@@ -9,19 +9,12 @@ import { CommonModule } from '@angular/common';
   template: `
     <h1>Bienvenido a la Aplicación</h1>
     <div class="buttons-container">
-      
-      <button (click)="goToUserList()">
-        User List
+      <button (click)="goToBoard()">
+        Ir a Pizarra
       </button>
-      
-      <button (click)="goToProfileList()">
-        Profile List
+      <button (click)="goToBoardGuest()">
+        Ir a Pizarra (Invitado)
       </button>
-      
-      <button (click)="goToProductList()">
-        Product List
-      </button>
-      
     </div>
   `,
   styles: [`
@@ -34,6 +27,7 @@ import { CommonModule } from '@angular/common';
     button {
       padding: 10px;
       font-size: 16px;
+      cursor: pointer;
     }
   `]
 })
@@ -41,17 +35,11 @@ export class HomePage {
 
   constructor(private router: Router) {}
 
-  
-  goToUserList() {
-    this.router.navigate(['user']);
+  goToBoard() {
+    this.router.navigate(['board', 1]); // navega a /board/1
   }
-  
-  goToProfileList() {
-    this.router.navigate(['profile']);
+
+  goToBoardGuest() {
+    this.router.navigate(['board-guest', 1]); // navega a /board-guest/1
   }
-  
-  goToProductList() {
-    this.router.navigate(['product']);
-  }
-  
 }

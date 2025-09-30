@@ -936,7 +936,7 @@ zoom(factor: number) {
     const payload = { contents: [{ parts: [{ text: `Analiza el siguiente diagrama UML (clases, atributos, relaciones) y responde en español: 1. Solo indica posibles mejoras de diseño lógico. 2. Sé conciso, máximo 10 líneas. 3. No describas el JSON ni el formato de datos, solo el diseño. 4. Prioriza errores de tipos de atributos, nombres y relaciones semánticas. Diagrama: ${JSON.stringify(this.d, null, 2)}` }] }] };
     fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-goog-api-key': 'APIKEYSECRETA' },
+      headers: { 'Content-Type': 'application/json', 'X-goog-api-key': 'AIzaSyC_iIKqfG1AbPc8unekU6e9gaqxqGvKSEA' },
       body: JSON.stringify(payload)
     })
     .then(res => res.json())

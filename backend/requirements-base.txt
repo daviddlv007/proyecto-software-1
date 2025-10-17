@@ -1,3 +1,0 @@
-Django==5.2.5
-psycopg2-binary==2.9.8
-djangorestframework==3.15.0

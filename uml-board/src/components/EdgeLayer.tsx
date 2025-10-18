@@ -97,33 +97,169 @@ const EdgeLayer: React.FC<Props> = ({ nodes, edges, onDeleteEdge }) => {
                     switch (edge.tipo) {
                         case 'agregacion':
                             return (
-                                <g key={edge.id}>
+                                <g
+                                    key={edge.id}
+                                    onMouseEnter={() => setHoveredEdge(edge.id)}
+                                    onMouseLeave={() => setHoveredEdge(null)}
+                                    style={{ pointerEvents: 'all' }}
+                                >
                                     <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#000" strokeWidth={2} />
-                                    {/* Rombo blanco en el origen */}
                                     <polygon
                                         points={getDiamondPoints(x1, y1, x2, y2, 14)}
                                         fill="#fff"
                                         stroke="#000"
                                         strokeWidth={2}
                                     />
+                                    {hoveredEdge === edge.id && onDeleteEdge && (
+                                        <foreignObject
+                                            x={((x1 + x2) / 2) - 12}
+                                            y={((y1 + y2) / 2) - 12}
+                                            width={24}
+                                            height={24}
+                                            style={{ pointerEvents: 'all' }}
+                                        >
+                                            <button
+                                                onClick={e => {
+                                                    e.stopPropagation();
+                                                    onDeleteEdge(edge.id);
+                                                }}
+                                                title="Eliminar relación"
+                                                style={{
+                                                    width: 24,
+                                                    height: 24,
+                                                    border: 'none',
+                                                    background: '#fff',
+                                                    color: '#c00',
+                                                    fontSize: 16,
+                                                    cursor: 'pointer',
+                                                    borderRadius: '50%',
+                                                    boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+                                                    opacity: 0.85,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    padding: 0
+                                                }}
+                                            >✕</button>
+                                        </foreignObject>
+                                    )}
                                 </g>
                             );
                         case 'composicion':
                             return (
-                                <g key={edge.id}>
+                                <g
+                                    key={edge.id}
+                                    onMouseEnter={() => setHoveredEdge(edge.id)}
+                                    onMouseLeave={() => setHoveredEdge(null)}
+                                    style={{ pointerEvents: 'all' }}
+                                >
                                     <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#000" strokeWidth={2} />
-                                    {/* Rombo negro en el origen */}
                                     <polygon
                                         points={getDiamondPoints(x1, y1, x2, y2, 14)}
                                         fill="#000"
                                         stroke="#000"
                                         strokeWidth={2}
                                     />
+                                    {hoveredEdge === edge.id && onDeleteEdge && (
+                                        <foreignObject
+                                            x={((x1 + x2) / 2) - 12}
+                                            y={((y1 + y2) / 2) - 12}
+                                            width={24}
+                                            height={24}
+                                            style={{ pointerEvents: 'all' }}
+                                        >
+                                            <button
+                                                onClick={e => {
+                                                    e.stopPropagation();
+                                                    onDeleteEdge(edge.id);
+                                                }}
+                                                title="Eliminar relación"
+                                                style={{
+                                                    width: 24,
+                                                    height: 24,
+                                                    border: 'none',
+                                                    background: '#fff',
+                                                    color: '#c00',
+                                                    fontSize: 16,
+                                                    cursor: 'pointer',
+                                                    borderRadius: '50%',
+                                                    boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+                                                    opacity: 0.85,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    padding: 0
+                                                }}
+                                            >✕</button>
+                                        </foreignObject>
+                                    )}
+                                </g>
+                            );
+                        case 'dependencia':
+                            return (
+                                <g
+                                    key={edge.id}
+                                    onMouseEnter={() => setHoveredEdge(edge.id)}
+                                    onMouseLeave={() => setHoveredEdge(null)}
+                                    style={{ pointerEvents: 'all' }}
+                                >
+                                    <line
+                                        x1={x1} y1={y1}
+                                        x2={getArrowBase(x1, y1, x2, y2, 18).x}
+                                        y2={getArrowBase(x1, y1, x2, y2, 18).y}
+                                        stroke="#000"
+                                        strokeWidth={2}
+                                        strokeDasharray="6 4"
+                                    />
+                                    <polyline
+                                        points={getOpenArrowPoints(x2, y2, x1, y1, 18)}
+                                        fill="none"
+                                        stroke="#000"
+                                        strokeWidth={2}
+                                    />
+                                    {hoveredEdge === edge.id && onDeleteEdge && (
+                                        <foreignObject
+                                            x={((x1 + x2) / 2) - 12}
+                                            y={((y1 + y2) / 2) - 12}
+                                            width={24}
+                                            height={24}
+                                            style={{ pointerEvents: 'all' }}
+                                        >
+                                            <button
+                                                onClick={e => {
+                                                    e.stopPropagation();
+                                                    onDeleteEdge(edge.id);
+                                                }}
+                                                title="Eliminar relación"
+                                                style={{
+                                                    width: 24,
+                                                    height: 24,
+                                                    border: 'none',
+                                                    background: '#fff',
+                                                    color: '#c00',
+                                                    fontSize: 16,
+                                                    cursor: 'pointer',
+                                                    borderRadius: '50%',
+                                                    boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+                                                    opacity: 0.85,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    padding: 0
+                                                }}
+                                            >✕</button>
+                                        </foreignObject>
+                                    )}
                                 </g>
                             );
                         case 'herencia':
                             return (
-                                <g key={edge.id}>
+                                <g
+                                    key={edge.id}
+                                    onMouseEnter={() => setHoveredEdge(edge.id)}
+                                    onMouseLeave={() => setHoveredEdge(null)}
+                                    style={{ pointerEvents: 'all' }}
+                                >
                                     <line
                                         x1={x1} y1={y1}
                                         x2={getArrowBase(x1, y1, x2, y2, 18).x}
@@ -138,26 +274,39 @@ const EdgeLayer: React.FC<Props> = ({ nodes, edges, onDeleteEdge }) => {
                                         stroke="#000"
                                         strokeWidth={2}
                                     />
-                                </g>
-                            );
-                        case 'dependencia':
-                            return (
-                                <g key={edge.id}>
-                                    <line
-                                        x1={x1} y1={y1}
-                                        x2={getArrowBase(x1, y1, x2, y2, 18).x}
-                                        y2={getArrowBase(x1, y1, x2, y2, 18).y}
-                                        stroke="#000"
-                                        strokeWidth={2}
-                                        strokeDasharray="6 4"
-                                    />
-                                    {/* Flecha abierta en el destino */}
-                                    <polyline
-                                        points={getOpenArrowPoints(x2, y2, x1, y1, 18)}
-                                        fill="none"
-                                        stroke="#000"
-                                        strokeWidth={2}
-                                    />
+                                    {hoveredEdge === edge.id && onDeleteEdge && (
+                                        <foreignObject
+                                            x={((x1 + x2) / 2) - 12}
+                                            y={((y1 + y2) / 2) - 12}
+                                            width={24}
+                                            height={24}
+                                            style={{ pointerEvents: 'all' }}
+                                        >
+                                            <button
+                                                onClick={e => {
+                                                    e.stopPropagation();
+                                                    onDeleteEdge(edge.id);
+                                                }}
+                                                title="Eliminar relación"
+                                                style={{
+                                                    width: 24,
+                                                    height: 24,
+                                                    border: 'none',
+                                                    background: '#fff',
+                                                    color: '#c00',
+                                                    fontSize: 16,
+                                                    cursor: 'pointer',
+                                                    borderRadius: '50%',
+                                                    boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+                                                    opacity: 0.85,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    padding: 0
+                                                }}
+                                            >✕</button>
+                                        </foreignObject>
+                                    )}
                                 </g>
                             );
                         default: // asociacion

@@ -51,7 +51,7 @@ const EdgeLayer: React.FC<Props> = ({ nodes, edges, onDeleteEdge }) => {
                 top: 0,
                 width: '100%',
                 height: '100%',
-                pointerEvents: 'none' // <-- Esto está bien, pero los hijos <g> deben tener 'all'
+                // Elimina pointerEvents: 'none' aquí
             }}
         >
             {edges
@@ -409,8 +409,11 @@ const EdgeLayer: React.FC<Props> = ({ nodes, edges, onDeleteEdge }) => {
                 const edgeA = edges.find(e => (e.source === tabla.id && e.target === idA) || (e.target === tabla.id && e.source === idA));
                 const edgeB = edges.find(e => (e.source === tabla.id && e.target === idB) || (e.target === tabla.id && e.source === idB));
 
+                // ID especial para eliminar la tabla asociativa
+                const assocEdgeId = `assoc-${tabla.id}-${idA}-${idB}`;
+
                 return (
-                    <g key={`assoc-${tabla.id}-${idA}-${idB}`}>
+                    <g key={assocEdgeId} style={{ pointerEvents: 'all' }}>
                         {/* Línea principal desplazada entre las dos clases */}
                         <line x1={ax_off} y1={ay_off} x2={bx_off} y2={by_off} stroke="#888" />
                         {/* Multiplicidad en los extremos */}
@@ -434,6 +437,51 @@ const EdgeLayer: React.FC<Props> = ({ nodes, edges, onDeleteEdge }) => {
                         </text>
                         {/* Línea interlineada desde el punto medio a la tabla intermedia */}
                         <line x1={mx} y1={my} x2={tx} y2={ty} stroke="#000" strokeDasharray="4 2" />
+                        {/* Área invisible para hover y botón eliminar */}
+                        <rect
+                            x={mx - 16}
+                            y={my - 16}
+                            width={32}
+                            height={32}
+                            fill="transparent"
+                            style={{ pointerEvents: 'all' }}
+                            onMouseEnter={() => setHoveredEdge(assocEdgeId)}
+                            onMouseLeave={() => setHoveredEdge(null)}
+                        />
+                        {/* Botón eliminar solo en hover */}
+                        {hoveredEdge === assocEdgeId && onDeleteEdge && (
+                            <foreignObject
+                                x={mx - 12}
+                                y={my - 12}
+                                width={24}
+                                height={24}
+                                style={{ pointerEvents: 'all' }}
+                            >
+                                <button
+                                    onClick={e => {
+                                        e.stopPropagation();
+                                        onDeleteEdge(assocEdgeId);
+                                    }}
+                                    title="Eliminar relación muchos a muchos"
+                                    style={{
+                                        width: 24,
+                                        height: 24,
+                                        border: 'none',
+                                        background: '#fff',
+                                        color: '#c00',
+                                        fontSize: 16,
+                                        cursor: 'pointer',
+                                        borderRadius: '50%',
+                                        boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+                                        opacity: 0.85,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        padding: 0
+                                    }}
+                                >✕</button>
+                            </foreignObject>
+                        )}
                     </g>
                 );
             })}

@@ -40,15 +40,6 @@ const nodeStyle = (n: NodeType, relationMode: boolean): React.CSSProperties => (
     overflow: 'hidden'
 });
 
-const attrStyle = {
-    textAlign: 'left' as const,
-    paddingLeft: 8,
-    height: ATTR_HEIGHT,
-    lineHeight: `${ATTR_HEIGHT}px`,
-    borderBottom: '1px solid #eee',
-    background: 'transparent'
-};
-
 const selectStyle: React.CSSProperties = {
     fontSize: 13,
     border: 'none',

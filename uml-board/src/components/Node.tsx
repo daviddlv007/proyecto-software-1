@@ -86,6 +86,8 @@ const Node: React.FC<Props> = ({
     onDeleteNode
 }) => {
     const [showMenu, setShowMenu] = useState(false);
+    const [showMultiplicityMenu, setShowMultiplicityMenu] = useState(false);
+    const [selectedRelationType, setSelectedRelationType] = useState<string | null>(null);
     const [hoveredAttr, setHoveredAttr] = useState<number | null>(null);
     const [hovered, setHovered] = useState(false);
 
@@ -102,7 +104,12 @@ const Node: React.FC<Props> = ({
                 if (onClick) onClick();
             }}
             onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
+            onMouseLeave={() => {
+                setHovered(false);
+                // Cerrar menús al salir del hover
+                setShowMenu(false);
+                setShowMultiplicityMenu(false);
+            }}
         >
             {/* Botón eliminar clase */}
             {hovered && onDeleteNode && (
@@ -219,23 +226,81 @@ const Node: React.FC<Props> = ({
                     </div>
                 ))}
             </div>
-            <button
-                onClick={e => {
-                    e.stopPropagation();
-                    addAttribute(node.id);
-                }}
-                title="Agregar atributo"
-                style={{ position: 'absolute', bottom: 8, right: 40 }}
-            >+</button>
-            <div style={{ position: 'absolute', bottom: 8, right: 8, zIndex: 1000 }}>
+            {/* Botón agregar atributo - solo visible en hover */}
+            {hovered && (
                 <button
                     onClick={e => {
                         e.stopPropagation();
-                        setShowMenu(v => !v);
+                        addAttribute(node.id);
                     }}
-                    title="Crear relación"
-                >⇄</button>
-                {showMenu && (
+                    title="Agregar atributo"
+                    style={{
+                        position: 'absolute',
+                        bottom: 8,
+                        right: 40,
+                        width: 24,
+                        height: 24,
+                        border: 'none',
+                        background: '#fff',
+                        color: '#666',
+                        fontSize: 14,
+                        cursor: 'pointer',
+                        borderRadius: '50%',
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+                        opacity: 0.85,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: 0,
+                        transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={e => {
+                        e.currentTarget.style.opacity = '1';
+                        e.currentTarget.style.background = '#f0f0f0';
+                    }}
+                    onMouseLeave={e => {
+                        e.currentTarget.style.opacity = '0.85';
+                        e.currentTarget.style.background = '#fff';
+                    }}
+                >+</button>
+            )}
+            
+            {/* Botón crear relación - solo visible en hover */}
+            {hovered && (
+                <div style={{ position: 'absolute', bottom: 8, right: 8, zIndex: 1000 }}>
+                    <button
+                        onClick={e => {
+                            e.stopPropagation();
+                            setShowMenu(v => !v);
+                        }}
+                        title="Crear relación"
+                        style={{
+                            width: 24,
+                            height: 24,
+                            border: 'none',
+                            background: '#fff',
+                            color: '#666',
+                            fontSize: 14,
+                            cursor: 'pointer',
+                            borderRadius: '50%',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+                            opacity: 0.85,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: 0,
+                            transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={e => {
+                            e.currentTarget.style.opacity = '1';
+                            e.currentTarget.style.background = '#f0f0f0';
+                        }}
+                        onMouseLeave={e => {
+                            e.currentTarget.style.opacity = '0.85';
+                            e.currentTarget.style.background = '#fff';
+                        }}
+                    >⇄</button>
+                    {showMenu && (
                     <div
                         style={{
                             position: 'fixed', // <-- Cambia a fixed para que no dependa del tamaño de la clase
@@ -259,16 +324,98 @@ const Node: React.FC<Props> = ({
                                     background: 'inherit'
                                 }}
                                 onClick={() => {
-                                    setShowMenu(false);
-                                    onStartRelation(node.id, rt.value);
+                                    if (rt.value === 'asociacion') {
+                                        // Para asociación, mostrar menú de multiplicidad
+                                        setSelectedRelationType(rt.value);
+                                        setShowMenu(false);
+                                        setShowMultiplicityMenu(true);
+                                    } else {
+                                        // Para otros tipos, crear relación directamente
+                                        setShowMenu(false);
+                                        onStartRelation(node.id, rt.value);
+                                    }
                                 }}
                             >
                                 {rt.label}
                             </div>
                         ))}
                     </div>
-                )}
-            </div>
+                    )}
+                    
+                    {/* Menú de multiplicidad (solo para asociaciones) */}
+                    {showMultiplicityMenu && (
+                        <div
+                            style={{
+                                position: 'fixed',
+                                left: window.innerWidth > node.x + NODE_WIDTH ? node.x + NODE_WIDTH : node.x,
+                                top: node.y + (node.height ?? NODE_HEIGHT) - 32,
+                                background: '#fff',
+                                border: '1px solid #ccc',
+                                zIndex: 2000,
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                            }}
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div
+                                style={{
+                                    padding: '6px 16px',
+                                    background: '#f0f0f0',
+                                    borderBottom: '1px solid #eee',
+                                    fontSize: '12px',
+                                    color: '#666',
+                                    fontWeight: 'bold'
+                                }}
+                            >
+                                Seleccionar multiplicidad:
+                            </div>
+                            <div
+                                style={{
+                                    padding: '6px 16px',
+                                    cursor: 'pointer',
+                                    whiteSpace: 'nowrap',
+                                    borderBottom: '1px solid #eee',
+                                    background: 'inherit'
+                                }}
+                                onClick={() => {
+                                    setShowMultiplicityMenu(false);
+                                    onStartRelation(node.id, `${selectedRelationType}:1:1`);
+                                }}
+                            >
+                                1 : 1 (Uno a Uno)
+                            </div>
+                            <div
+                                style={{
+                                    padding: '6px 16px',
+                                    cursor: 'pointer',
+                                    whiteSpace: 'nowrap',
+                                    borderBottom: '1px solid #eee',
+                                    background: 'inherit'
+                                }}
+                                onClick={() => {
+                                    setShowMultiplicityMenu(false);
+                                    onStartRelation(node.id, `${selectedRelationType}:1:*`);
+                                }}
+                            >
+                                1 : * (Uno a Muchos)
+                            </div>
+                            <div
+                                style={{
+                                    padding: '6px 16px',
+                                    cursor: 'pointer',
+                                    whiteSpace: 'nowrap',
+                                    background: 'inherit'
+                                }}
+                                onClick={() => {
+                                    setShowMultiplicityMenu(false);
+                                    onStartRelation(node.id, `${selectedRelationType}:*:1`);
+                                }}
+                            >
+                                * : 1 (Muchos a Uno)
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };

@@ -31,15 +31,20 @@ function generateSimpleFields(cls: ClassNode): string {
         .join('\n');
 }
 
-// Genera los campos foráneos como Long (sin objetos anidados)
+// Genera los campos foráneos con anotaciones JPA para CASCADE DELETE
 function generateForeignKeyFields(cls: ClassNode, nodes: NodeType[], edges: EdgeType[]): string {
     let result = '';
-    // Para clases asociativas, agregar foráneas a las dos clases relacionadas
+    // Para clases asociativas, agregar foráneas a las dos clases relacionadas con CASCADE
     if (cls.asociativa && cls.relaciona) {
         cls.relaciona.forEach(relId => {
             const relClass = nodes.find(n => n.id === relId);
             if (relClass) {
                 const fieldName = relClass.label.charAt(0).toLowerCase() + relClass.label.slice(1) + "Id";
+                const constraintName = `FK_${cls.label.toUpperCase()}_${relClass.label.toUpperCase()}`;
+                result += `    @Column(name = "${fieldName}")\n`;
+                result += `    @JoinColumn(name = "${fieldName}", referencedColumnName = "id",\n`;
+                result += `               foreignKey = @ForeignKey(name = "${constraintName}",\n`;
+                result += `                           foreignKeyDefinition = "FOREIGN KEY (${fieldName}) REFERENCES ${relClass.label.toLowerCase()}(id) ON DELETE CASCADE"))\n`;
                 result += `    private Long ${fieldName};\n`;
             }
         });
@@ -50,6 +55,11 @@ function generateForeignKeyFields(cls: ClassNode, nodes: NodeType[], edges: Edge
         const parentClass = nodes.find(c => c.id === rel.target && !c.asociativa);
         if (parentClass) {
             const fieldName = parentClass.label.charAt(0).toLowerCase() + parentClass.label.slice(1) + "Id";
+            const constraintName = `FK_${cls.label.toUpperCase()}_${parentClass.label.toUpperCase()}`;
+            result += `    @Column(name = "${fieldName}")\n`;
+            result += `    @JoinColumn(name = "${fieldName}", referencedColumnName = "id",\n`;
+            result += `               foreignKey = @ForeignKey(name = "${constraintName}",\n`;
+            result += `                           foreignKeyDefinition = "FOREIGN KEY (${fieldName}) REFERENCES ${parentClass.label.toLowerCase()}(id) ON DELETE CASCADE"))\n`;
             result += `    private Long ${fieldName};\n`;
         }
     });
@@ -66,6 +76,11 @@ function generateForeignKeyFields(cls: ClassNode, nodes: NodeType[], edges: Edge
         if (originClass) {
             const fieldName = originClass.label.charAt(0).toLowerCase() + originClass.label.slice(1) + "Id";
             if (!added.has(fieldName)) {
+                const constraintName = `FK_${cls.label.toUpperCase()}_${originClass.label.toUpperCase()}`;
+                result += `    @Column(name = "${fieldName}")\n`;
+                result += `    @JoinColumn(name = "${fieldName}", referencedColumnName = "id",\n`;
+                result += `               foreignKey = @ForeignKey(name = "${constraintName}",\n`;
+                result += `                           foreignKeyDefinition = "FOREIGN KEY (${fieldName}) REFERENCES ${originClass.label.toLowerCase()}(id) ON DELETE CASCADE"))\n`;
                 result += `    private Long ${fieldName};\n`;
                 added.add(fieldName);
             }
@@ -215,7 +230,12 @@ function generatePomXmlWithSwagger(): string {
         <relativePath/>
     </parent>
 
+    <properties>
+        <java.version>17</java.version>
+    </properties>
+
     <dependencies>
+        <!-- Spring Boot Starters -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
@@ -224,19 +244,41 @@ function generatePomXmlWithSwagger(): string {
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
+        
+        <!-- Bases de Datos Soportadas -->
+        <!-- H2: Base de datos en memoria para desarrollo -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
         </dependency>
+        
+        <!-- PostgreSQL: Base de datos para producción -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        
+        <!-- Herramientas -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+            <optional>true</optional>
         </dependency>
+        
+        <!-- API Documentation -->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>2.2.0</version>
+        </dependency>
+        
+        <!-- Testing -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -245,6 +287,14 @@ function generatePomXmlWithSwagger(): string {
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
             </plugin>
         </plugins>
     </build>
@@ -252,7 +302,11 @@ function generatePomXmlWithSwagger(): string {
 `.trim();
 }
 
-export async function generarBackend(nodes: NodeType[], edges: EdgeType[]) {
+export async function generarBackend(nodes: NodeType[], edges: EdgeType[], boardName?: string) {
+    console.log(`🔧 Generando backend Spring Boot${boardName ? ` para "${boardName}"` : ''}...`);
+    console.log(`📊 Clases detectadas: ${nodes.length}`);
+    console.log(`🔗 Relaciones detectadas: ${edges.length}`);
+    
     const zip = new JSZip();
 
     // Todas las clases (incluyendo asociativas)
@@ -265,9 +319,73 @@ export async function generarBackend(nodes: NodeType[], edges: EdgeType[]) {
     const servicesFolder = zip.folder(`${basePath}/service`);
     const controllersFolder = zip.folder(`${basePath}/controller`);
 
-    // Crear carpeta de recursos y README
-    zip.folder('spring-crud/src/main/resources')?.file('application.properties', '');
-    zip.file('spring-crud/README.md', '# Proyecto Spring Boot generado automáticamente');
+    // Crear carpeta de recursos y configuración mejorada
+    const resourcesFolder = zip.folder('spring-crud/src/main/resources');
+    resourcesFolder?.file('application.properties', `# Configuración Base de Datos (por defecto H2)
+spring.datasource.url=jdbc:h2:mem:testdb
+spring.datasource.driver-class-name=org.h2.Driver
+spring.datasource.username=sa
+spring.datasource.password=
+
+# Configuración JPA/Hibernate - Compatible múltiples BD
+spring.jpa.hibernate.ddl-auto=create-drop
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+spring.jpa.properties.hibernate.hbm2ddl.create_namespaces=true
+
+# IMPORTANTE: Habilitar foreign keys para CASCADE DELETE
+spring.jpa.properties.hibernate.globally_quoted_identifiers=true
+spring.jpa.properties.hibernate.physical_naming_strategy=org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+
+# Consola H2 (solo para desarrollo)
+spring.h2.console.enabled=true
+spring.h2.console.path=/h2-console
+
+# Para cambiar a PostgreSQL, descomenta estas líneas:
+# spring.datasource.url=jdbc:postgresql://localhost:5432/demo
+# spring.datasource.driver-class-name=org.postgresql.Driver
+# spring.datasource.username=postgres
+# spring.datasource.password=password
+`);
+
+    // README mejorado con instrucciones
+    zip.file('spring-crud/README.md', `# Proyecto Spring Boot con CASCADE DELETE
+
+## ✅ Borrado en Cascada Automático
+
+Este proyecto está configurado para **borrado en cascada automático** en cualquier base de datos.
+
+### 🎯 Cómo Funciona:
+
+- Al eliminar una entidad padre, **automáticamente se eliminan** todas las entidades hijas
+- Configurado con anotaciones JPA estándar (compatible con todas las BD)
+- No requiere configuración adicional
+
+### 🗄️ Bases de Datos Soportadas:
+
+- **H2** (por defecto) - Base de datos en memoria para desarrollo y testing
+- **PostgreSQL** - Base de datos para producción (descomenta las líneas en \`application.properties\`)
+
+### 🚀 Ejecutar el Proyecto:
+
+1. \`mvn clean install\`
+2. \`mvn spring-boot:run\`
+3. Accede a: \`http://localhost:8080/h2-console\` (para H2)
+
+### 📝 Ejemplo de Uso:
+
+\`\`\`bash
+# Eliminar un curso (automáticamente elimina inscripciones relacionadas)
+DELETE /cursos/1
+
+# Eliminar un estudiante (automáticamente elimina inscripciones relacionadas) 
+DELETE /estudiantes/1
+\`\`\`
+
+### 🔧 Cambiar Base de Datos:
+
+Solo modifica \`application.properties\` y agrega la dependencia correspondiente en \`pom.xml\`
+`);
 
     // Crear archivos Java de entidades, repositorios, servicios y controladores
     classes.forEach(cls => {
@@ -299,6 +417,9 @@ public class DemoApplication {
 
     // Generar archivo de colección Postman con endpoints CRUD
     zip.file('spring-crud/DemoAPI.postman_collection.json', generatePostmanCollection(classes, nodes, edges));
+
+    console.log(`✅ Backend Spring Boot generado exitosamente${boardName ? ` para "${boardName}"` : ''}`);
+    console.log(`📦 Archivo de descarga: spring-crud.zip`);
 
     // Descargar proyecto completo
     const content = await zip.generateAsync({ type: 'blob' });

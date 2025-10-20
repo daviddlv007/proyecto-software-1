@@ -943,7 +943,6 @@ function generateFormDialog(associativeEntity: NodeType, mainEntity: NodeType, r
     const relatedClassName = capitalizeFirst(relatedEntity.label);
     const mainFieldName = mainEntity.label.toLowerCase() + 'Id';
     const relatedFieldName = relatedEntity.label.toLowerCase() + 'Id';
-    const assocEndpoint = associativeEntity.label.toLowerCase() + 's';
     
     const ownAttributes = (associativeEntity.attributes || []).filter(attr => 
         attr.name !== 'id' && 
@@ -951,85 +950,121 @@ function generateFormDialog(associativeEntity: NodeType, mainEntity: NodeType, r
         attr.name !== relatedFieldName
     );
     
-    // Generar controladores para atributos propios
-    const controllers = ownAttributes.map(attr => 
-        `  final TextEditingController _${attr.name}Controller = TextEditingController();`
-    ).join('\n');
+    // Generar variables de estado para todos los tipos de atributos
+    const allStateVars = ownAttributes.map(attr => {
+        const dartType = mapDartType(attr.datatype);
+        const fieldName = attr.name;
+        
+        if (dartType === 'DateTime') {
+            return `  DateTime? _selected${capitalizeFirst(fieldName)}Date;`;
+        } else if (dartType === 'bool') {
+            return `  bool _${fieldName}Value = false;`;
+        } else {
+            // Para String, int, double usamos controladores
+            return `  final _${fieldName}Controller = TextEditingController();`;
+        }
+    }).join('\n');
     
-    // Generar campos del formulario
+    // Generar campos del formulario para todos los tipos
     const formFields = ownAttributes.map(attr => {
         const dartType = mapDartType(attr.datatype);
+        const fieldName = attr.name;
+        const capitalizedName = capitalizeFirst(fieldName);
+        
         if (dartType === 'DateTime') {
-            return `                    InkWell(
-                      onTap: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: _selected${capitalizeFirst(attr.name)}Date ?? DateTime.now(),
-                          firstDate: DateTime(1900),
-                          lastDate: DateTime(2100),
-                        );
-                        if (date != null) {
-                          setState(() {
-                            _selected${capitalizeFirst(attr.name)}Date = date;
-                          });
-                        }
-                      },
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: '${capitalizeFirst(attr.name)}',
-                          border: OutlineInputBorder(),
-                          suffixIcon: Icon(Icons.calendar_today),
-                        ),
-                        child: Text(
-                          _selected${capitalizeFirst(attr.name)}Date != null
-                              ? '\${_selected${capitalizeFirst(attr.name)}Date!.day}/\${_selected${capitalizeFirst(attr.name)}Date!.month}/\${_selected${capitalizeFirst(attr.name)}Date!.year}'
-                              : 'Seleccionar fecha',
-                          style: TextStyle(
-                            color: _selected${capitalizeFirst(attr.name)}Date != null ? Colors.black87 : Colors.grey,
-                          ),
-                        ),
+            return `                InkWell(
+                  onTap: _isSaving ? null : () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: _selected${capitalizedName}Date ?? DateTime.now(),
+                      firstDate: DateTime(1900),
+                      lastDate: DateTime(2100),
+                    );
+                    if (date != null) {
+                      setState(() {
+                        _selected${capitalizedName}Date = date;
+                      });
+                    }
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: '${capitalizedName}',
+                      border: OutlineInputBorder(),
+                      suffixIcon: Icon(Icons.calendar_today),
+                    ),
+                    child: Text(
+                      _selected${capitalizedName}Date != null
+                          ? '\${_selected${capitalizedName}Date!.day}/\${_selected${capitalizedName}Date!.month}/\${_selected${capitalizedName}Date!.year}'
+                          : 'Seleccionar fecha',
+                      style: TextStyle(
+                        color: _selected${capitalizedName}Date != null ? Colors.black87 : Colors.grey,
                       ),
                     ),
-                    const SizedBox(height: 16),`;
+                  ),
+                ),
+                const SizedBox(height: 16),`;
+        } else if (dartType === 'bool') {
+            return `                Row(
+                  children: [
+                    Checkbox(
+                      value: _${fieldName}Value,
+                      onChanged: _isSaving ? null : (bool? value) {
+                        setState(() {
+                          _${fieldName}Value = value ?? false;
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    Text('${capitalizedName}'),
+                  ],
+                ),
+                const SizedBox(height: 16),`;
         } else {
-            const inputType = dartType === 'int' || dartType === 'double' 
-                ? 'TextInputType.number' : 'TextInputType.text';
-            return `                    TextFormField(
-                      controller: _${attr.name}Controller,
-                      decoration: const InputDecoration(
-                        labelText: '${capitalizeFirst(attr.name)}',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: ${inputType},
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Este campo es requerido';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),`;
+            // Para String, int, double
+            const keyboardType = dartType === 'int' ? 'TextInputType.number' : 
+                                dartType === 'double' ? 'TextInputType.numberWithOptions(decimal: true)' : 
+                                'TextInputType.text';
+            
+            return `                TextFormField(
+                  controller: _${fieldName}Controller,
+                  enabled: !_isSaving,
+                  keyboardType: ${keyboardType},
+                  decoration: const InputDecoration(
+                    labelText: '${capitalizedName}',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Este campo es requerido';
+                    }
+                    ${dartType === 'int' ? `
+                    if (int.tryParse(value) == null) {
+                      return 'Debe ser un número entero';
+                    }` : ''}
+                    ${dartType === 'double' ? `
+                    if (double.tryParse(value) == null) {
+                      return 'Debe ser un número válido';
+                    }` : ''}
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),`;
         }
     }).join('\n');
     
     return `import 'package:flutter/material.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import '../../models/${associativeEntity.label.toLowerCase()}_model.dart';
-import '../../config/api_config.dart';
 
 class ${assocClassName}FormDialog extends StatefulWidget {
   final int ${mainEntity.label.toLowerCase()}Id;
   final Map<int, String> ${relatedEntity.label.toLowerCase()}Options;
-  final ${assocClassName}? detail;
-  final bool isCreatingMainEntity;
+  final List<${assocClassName}> existingDetails; // Add this to check for duplicates
   
   const ${assocClassName}FormDialog({
     Key? key, 
     required this.${mainEntity.label.toLowerCase()}Id,
     required this.${relatedEntity.label.toLowerCase()}Options,
-    this.detail,
-    this.isCreatingMainEntity = false,
+    required this.existingDetails,
   }) : super(key: key);
 
   @override
@@ -1038,32 +1073,24 @@ class ${assocClassName}FormDialog extends StatefulWidget {
 
 class _${assocClassName}FormDialogState extends State<${assocClassName}FormDialog> {
   final _formKey = GlobalKey<FormState>();
-${controllers}
   int? _selected${relatedClassName}Id;
-${ownAttributes.filter(attr => mapDartType(attr.datatype) === 'DateTime').map(attr => `  DateTime? _selected${capitalizeFirst(attr.name)}Date;`).join('\n')}
+${allStateVars}
+  bool _isSaving = false;
 
   @override
-  void initState() {
-    super.initState();
-    if (widget.detail != null) {
-      _loadDetailData();
-    }
+  void dispose() {
+${ownAttributes.filter(attr => ['String', 'Integer', 'Float'].includes(attr.datatype)).map(attr => 
+    `    _${attr.name}Controller.dispose();`
+).join('\n')}
+    super.dispose();
   }
 
-  void _loadDetailData() {
-    final detail = widget.detail!;
-${ownAttributes.map(attr => {
-        const dartType = mapDartType(attr.datatype);
-        if (dartType === 'DateTime') {
-            return `    _selected${capitalizeFirst(attr.name)}Date = detail.${attr.name};`;
-        } else {
-            return `    _${attr.name}Controller.text = detail.${attr.name}.toString();`;
-        }
-    }).join('\n')}
-    _selected${relatedClassName}Id = detail.${relatedFieldName};
+  bool _is${relatedClassName}AlreadyEnrolled(int ${relatedEntity.label.toLowerCase()}Id) {
+    return widget.existingDetails.any((detail) => detail.${relatedFieldName} == ${relatedEntity.label.toLowerCase()}Id);
   }
 
   Future<void> _saveDetail() async {
+    if (_isSaving) return;
     if (!_formKey.currentState!.validate()) return;
     
     if (_selected${relatedClassName}Id == null) {
@@ -1073,71 +1100,68 @@ ${ownAttributes.map(attr => {
       return;
     }
 
+    // Check for duplicate relationship
+    if (_is${relatedClassName}AlreadyEnrolled(_selected${relatedClassName}Id!)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Este ${relatedEntity.label.toLowerCase()} ya está relacionado con este ${mainEntity.label.toLowerCase()}'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
     try {
       final detail = ${assocClassName}(
-        id: widget.detail?.id ?? 0,
+        id: 0, // Always new
         ${mainFieldName}: widget.${mainEntity.label.toLowerCase()}Id,
         ${relatedFieldName}: _selected${relatedClassName}Id!,
 ${ownAttributes.map(attr => {
         const dartType = mapDartType(attr.datatype);
-        if (dartType === 'int') {
-            return `        ${attr.name}: int.parse(_${attr.name}Controller.text),`;
+        const fieldName = attr.name;
+        const controllerName = `_${fieldName}Controller`;
+        
+        if (dartType === 'DateTime') {
+            return `        ${fieldName}: _selected${capitalizeFirst(fieldName)}Date ?? DateTime.now(),`;
+        } else if (dartType === 'int') {
+            return `        ${fieldName}: int.tryParse(${controllerName}.text) ?? 0,`;
         } else if (dartType === 'double') {
-            return `        ${attr.name}: double.parse(_${attr.name}Controller.text),`;
+            return `        ${fieldName}: double.tryParse(${controllerName}.text) ?? 0.0,`;
         } else if (dartType === 'bool') {
-            return `        ${attr.name}: _${attr.name}Controller.text.toLowerCase() == 'true',`;
-        } else if (dartType === 'DateTime') {
-            return `        ${attr.name}: _selected${capitalizeFirst(attr.name)}Date ?? DateTime.now(),`;
+            return `        ${fieldName}: _${fieldName}Value,`;
         } else {
-            return `        ${attr.name}: _${attr.name}Controller.text,`;
+            // String y otros tipos
+            return `        ${fieldName}: ${controllerName}.text.trim(),`;
         }
     }).join('\n')}
       );
 
-      // Si estamos creando la entidad principal, solo devolvemos el detalle para agregarlo localmente
-      if (widget.isCreatingMainEntity) {
-        if (Navigator.canPop(context)) {
-          Navigator.pop(context, detail);
-        }
-        return;
-      }
-
-      // Si la entidad principal ya existe, guardamos directamente en el backend
-      final response = widget.detail == null
-          ? await http.post(
-              Uri.parse(ApiConfig.endpoint('${assocEndpoint}')),
-              headers: ApiConfig.headers,
-              body: json.encode(detail.toJson()),
-            ).timeout(ApiConfig.timeout)
-          : await http.put(
-              Uri.parse(ApiConfig.endpoint('${assocEndpoint}/\${detail.id}')),
-              headers: ApiConfig.headers,
-              body: json.encode(detail.toJson()),
-            ).timeout(ApiConfig.timeout);
-
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        if (Navigator.canPop(context)) {
-          Navigator.pop(context, true);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Detalle \${widget.detail == null ? 'creado' : 'actualizado'} exitosamente')),
-          );
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error al guardar')),
-        );
+      if (mounted) {
+        Navigator.pop(context, detail);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: \$e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: \$e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text('\${widget.detail == null ? 'Crear' : 'Editar'} ${assocClassName}'),
+      title: const Text('Agregar ${assocClassName}'),
       content: SizedBox(
         width: MediaQuery.of(context).size.width * 0.8,
         child: Form(
@@ -1148,17 +1172,21 @@ ${ownAttributes.map(attr => {
               children: [
                 DropdownButtonFormField<int>(
                   value: _selected${relatedClassName}Id,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: '${relatedClassName}',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
+                    helperText: 'Solo ${relatedEntity.label.toLowerCase()}s no relacionados aparecen disponibles',
+                    helperStyle: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
-                  items: widget.${relatedEntity.label.toLowerCase()}Options.entries.map((entry) {
+                  items: widget.${relatedEntity.label.toLowerCase()}Options.entries
+                      .where((entry) => !_is${relatedClassName}AlreadyEnrolled(entry.key))
+                      .map((entry) {
                     return DropdownMenuItem<int>(
                       value: entry.key,
                       child: Text(entry.value),
                     );
                   }).toList(),
-                  onChanged: (int? value) {
+                  onChanged: _isSaving ? null : (int? value) {
                     setState(() {
                       _selected${relatedClassName}Id = value;
                     });
@@ -1170,6 +1198,31 @@ ${ownAttributes.map(attr => {
                     return null;
                   },
                 ),
+                // Show message if no options available
+                if (widget.${relatedEntity.label.toLowerCase()}Options.entries
+                    .where((entry) => !_is${relatedClassName}AlreadyEnrolled(entry.key))
+                    .isEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(top: 16),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      border: Border.all(color: Colors.orange.shade200),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.info, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Todos los ${relatedEntity.label.toLowerCase()}s ya están relacionados con este ${mainEntity.label.toLowerCase()}',
+                            style: TextStyle(color: Colors.orange),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 16),
 ${formFields}
               ],
@@ -1179,21 +1232,23 @@ ${formFields}
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _isSaving ? null : () => Navigator.pop(context),
           child: const Text('Cancelar'),
         ),
         ElevatedButton(
-          onPressed: _saveDetail,
-          child: const Text('Guardar'),
+          onPressed: (_isSaving || widget.${relatedEntity.label.toLowerCase()}Options.entries
+              .where((entry) => !_is${relatedClassName}AlreadyEnrolled(entry.key))
+              .isEmpty) ? null : _saveDetail,
+          child: _isSaving 
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Text('Agregar'),
         ),
       ],
     );
-  }
-
-  @override
-  void dispose() {
-${ownAttributes.map(attr => `    _${attr.name}Controller.dispose();`).join('\n')}
-    super.dispose();
   }
 }
 `;
@@ -1222,6 +1277,7 @@ function generateFormScreen(cls: NodeType, nodes: NodeType[], edges: EdgeType[])
         const assocClassName = capitalizeFirst(rel.associativeEntity.label);
         const relatedClassName = capitalizeFirst(rel.relatedEntity.label);
         return `  List<${assocClassName}> _${rel.associativeEntity.label.toLowerCase()}Details = [];
+  List<${assocClassName}> _original${assocClassName}Details = []; // Track originals
   Map<int, String> _${rel.relatedEntity.label.toLowerCase()}Options = {};
   bool _loading${relatedClassName}Options = true;`;
     }).join('\n');
@@ -1276,29 +1332,12 @@ function generateFormScreen(cls: NodeType, nodes: NodeType[], edges: EdgeType[])
       builder: (context) => ${assocClassName}FormDialog(
         ${cls.label.toLowerCase()}Id: widget.item?.id ?? 0,
         ${rel.relatedEntity.label.toLowerCase()}Options: _${rel.relatedEntity.label.toLowerCase()}Options,
-        isCreatingMainEntity: widget.item == null,
+        existingDetails: _${rel.associativeEntity.label.toLowerCase()}Details,
       ),
     );
     if (result != null) {
       setState(() {
         _${rel.associativeEntity.label.toLowerCase()}Details.add(result);
-      });
-    }
-  }
-
-  void _showEdit${assocClassName}Dialog(${assocClassName} detail, int index) async {
-    final result = await showDialog<${assocClassName}>(
-      context: context,
-      builder: (context) => ${assocClassName}FormDialog(
-        ${cls.label.toLowerCase()}Id: widget.item?.id ?? 0,
-        ${rel.relatedEntity.label.toLowerCase()}Options: _${rel.relatedEntity.label.toLowerCase()}Options,
-        detail: detail,
-        isCreatingMainEntity: widget.item == null,
-      ),
-    );
-    if (result != null) {
-      setState(() {
-        _${rel.associativeEntity.label.toLowerCase()}Details[index] = result;
       });
     }
   }
@@ -1396,20 +1435,10 @@ function generateFormScreen(cls: NodeType, nodes: NodeType[], edges: EdgeType[])
 ${detailRows}
                                     ],
                                   ),` : ''}
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
-                                        onPressed: () => _showEdit${assocClassName}Dialog(detail, index),
-                                        tooltip: 'Editar',
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-                                        onPressed: () => _remove${assocClassName}Detail(index),
-                                        tooltip: 'Eliminar',
-                                      ),
-                                    ],
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                                    onPressed: () => _remove${assocClassName}Detail(index),
+                                    tooltip: 'Eliminar',
                                   ),
                                 ),
                               );
@@ -1639,10 +1668,13 @@ ${manyToManyRelations.map(rel => {
           json['${mainFieldName}'] == widget.item!.id
         ).toList();
         
+        final existingDetails = filteredList
+            .map((json) => ${assocClassName}.fromJson(json))
+            .toList();
+        
         setState(() {
-          _${rel.associativeEntity.label.toLowerCase()}Details = filteredList
-              .map((json) => ${assocClassName}.fromJson(json))
-              .toList();
+          _${rel.associativeEntity.label.toLowerCase()}Details = List.from(existingDetails);
+          _original${assocClassName}Details = List.from(existingDetails);
         });
       }
     } catch (e) {
@@ -1704,33 +1736,52 @@ ${foreignKeys.map(fk => `        ${fk.fieldName}: _selected${fk.className}Id,`).
   }
 
 ${manyToManyRelations.length > 0 ? `  Future<void> _saveDetails(int ${cls.label.toLowerCase()}Id) async {
+    try {
 ${manyToManyRelations.map(rel => {
+    const assocClassName = capitalizeFirst(rel.associativeEntity.label);
     const assocEndpoint = rel.associativeEntity.label.toLowerCase() + 's';
     const mainFieldName = cls.label.toLowerCase() + 'Id';
-    return `    // Guardar ${rel.associativeEntity.label.toLowerCase()}s
-    for (var detail in _${rel.associativeEntity.label.toLowerCase()}Details) {
-      try {
-        final detailToSave = ${capitalizeFirst(rel.associativeEntity.label)}(
-          id: 0, // Nuevo detalle
-          ${mainFieldName}: ${cls.label.toLowerCase()}Id,
-          ${rel.relatedEntity.label.toLowerCase()}Id: detail.${rel.relatedEntity.label.toLowerCase()}Id,
+    return `      // Si estamos editando, primero eliminar los detalles existentes
+      if (widget.item != null) {
+        for (var originalDetail in _original${assocClassName}Details) {
+          try {
+            await http.delete(
+              Uri.parse(ApiConfig.endpoint('${assocEndpoint}/\${originalDetail.id}')),
+              headers: ApiConfig.headers,
+            ).timeout(ApiConfig.timeout);
+          } catch (e) {
+            print('Error deleting original detail \${originalDetail.id}: \$e');
+          }
+        }
+      }
+
+      // Guardar todos los detalles actuales
+      for (var detail in _${rel.associativeEntity.label.toLowerCase()}Details) {
+        try {
+          final detailToSave = ${assocClassName}(
+            id: 0, // Siempre crear nuevo
+            ${mainFieldName}: ${cls.label.toLowerCase()}Id,
+            ${rel.relatedEntity.label.toLowerCase()}Id: detail.${rel.relatedEntity.label.toLowerCase()}Id,
 ${(rel.associativeEntity.attributes || []).filter(attr => 
     attr.name !== 'id' && 
     attr.name !== mainFieldName && 
     attr.name !== rel.relatedEntity.label.toLowerCase() + 'Id'
-).map(attr => `          ${attr.name}: detail.${attr.name},`).join('\n')}
-        );
-        
-        await http.post(
-          Uri.parse(ApiConfig.endpoint('${assocEndpoint}')),
-          headers: ApiConfig.headers,
-          body: json.encode(detailToSave.toJson()),
-        ).timeout(ApiConfig.timeout);
-      } catch (e) {
-        print('Error saving ${rel.associativeEntity.label.toLowerCase()} detail: \$e');
-      }
-    }`;
-}).join('\n\n')}
+).map(attr => `            ${attr.name}: detail.${attr.name},`).join('\n')}
+          );
+          
+          await http.post(
+            Uri.parse(ApiConfig.endpoint('${assocEndpoint}')),
+            headers: ApiConfig.headers,
+            body: json.encode(detailToSave.toJson()),
+          ).timeout(ApiConfig.timeout);
+        } catch (e) {
+          print('Error saving ${rel.associativeEntity.label.toLowerCase()} detail: \$e');
+        }
+      }`;
+}).join('\n')}
+    } catch (e) {
+      print('Error in _saveDetails: \$e');
+    }
   }` : ''}
 
   @override
@@ -1995,7 +2046,11 @@ lib/
 `;
 }
 
-export async function generarFrontend(nodes: NodeType[], edges: EdgeType[]) {
+export async function generarFrontend(nodes: NodeType[], edges: EdgeType[], boardName?: string) {
+    console.log(`🚀 Generando Frontend Flutter${boardName ? ` para: ${boardName}` : ''}`);
+    console.log(`📊 Entidades encontradas: ${nodes.length}`);
+    console.log(`🔗 Relaciones encontradas: ${edges.length}`);
+    
     const zip = new JSZip();
 
     // Filtrar solo clases normales (no asociativas) para navegación y pantallas principales
@@ -2059,4 +2114,7 @@ export async function generarFrontend(nodes: NodeType[], edges: EdgeType[]) {
     // Descargar proyecto completo
     const content = await zip.generateAsync({ type: 'blob' });
     saveAs(content, 'flutter-mvp.zip');
+    
+    console.log(`✅ Frontend Flutter generado exitosamente${boardName ? ` para: ${boardName}` : ''}`);
+    console.log(`📦 Archivo descargado: flutter-mvp.zip`);
 }

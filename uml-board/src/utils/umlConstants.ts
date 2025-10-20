@@ -24,6 +24,15 @@ export type EdgeType = {
     multiplicidadDestino: "1" | "*";
 };
 
+export type BoardType = {
+    id: string;
+    name: string;
+    nodes: NodeType[];
+    edges: EdgeType[];
+    zoom: number;
+    panOffset: { x: number; y: number };
+};
+
 export const ATTR_HEIGHT = 28;
 export const NODE_WIDTH = 220;
 export const NODE_HEIGHT = 120;
@@ -157,6 +166,53 @@ export const initialNodes: NodeType[] = [
         attributes: [
             { name: 'tituloLibro', scope: 'private', datatype: 'String' }
         ]
+    },
+    // Sistema de ventas: Venta-DetalleVenta-Producto-Categoria
+    {
+        id: '14',
+        label: 'Venta',
+        x: 1100,
+        y: 100,
+        attributes: [
+            { name: 'clienteNombre', scope: 'private', datatype: 'String' },
+            { name: 'fecha', scope: 'private', datatype: 'Date' },
+            { name: 'total', scope: 'private', datatype: 'Float' }
+        ]
+    },
+    {
+        id: '15',
+        label: 'DetalleVenta',
+        x: 1350,
+        y: 100,
+        attributes: [
+            { name: 'cantidad', scope: 'private', datatype: 'Integer' },
+            { name: 'precioUnitario', scope: 'private', datatype: 'Float' }
+        ],
+        asociativa: true,
+        relaciona: ['14', '16'] // Venta-Producto
+    },
+    {
+        id: '16',
+        label: 'Producto',
+        x: 1100,
+        y: 300,
+        attributes: [
+            { name: 'nombre', scope: 'private', datatype: 'String' },
+            { name: 'descripcion', scope: 'private', datatype: 'String' },
+            { name: 'imagenUrl', scope: 'private', datatype: 'String' },
+            { name: 'precio', scope: 'private', datatype: 'Float' },
+            { name: 'stock', scope: 'private', datatype: 'Integer' }
+        ]
+    },
+    {
+        id: '17',
+        label: 'Categoria',
+        x: 1350,
+        y: 300,
+        attributes: [
+            { name: 'nombre', scope: 'private', datatype: 'String' },
+            { name: 'descripcion', scope: 'private', datatype: 'String' }
+        ]
     }
 ];
 
@@ -173,7 +229,32 @@ export const initialEdges: EdgeType[] = [
     { id: 'e5', source: '9', target: '11', tipo: 'asociacion', multiplicidadOrigen: "1", multiplicidadDestino: "*" },
     { id: 'e6', source: '10', target: '11', tipo: 'asociacion', multiplicidadOrigen: "1", multiplicidadDestino: "*" },
     // Relación 1 a muchos: Autor-Libro
-    { id: 'e7', source: '12', target: '13', tipo: 'asociacion', multiplicidadOrigen: "1", multiplicidadDestino: "*" }
+    { id: 'e7', source: '12', target: '13', tipo: 'asociacion', multiplicidadOrigen: "1", multiplicidadDestino: "*" },
+    // Sistema de ventas: relaciones
+    // Venta M:N Producto vía DetalleVenta (tabla asociativa)
+    { id: 'e8', source: '14', target: '15', tipo: 'asociacion', multiplicidadOrigen: "1", multiplicidadDestino: "*" },
+    { id: 'e9', source: '16', target: '15', tipo: 'asociacion', multiplicidadOrigen: "1", multiplicidadDestino: "*" },
+    // Categoria 1:* Producto
+    { id: 'e10', source: '17', target: '16', tipo: 'asociacion', multiplicidadOrigen: "1", multiplicidadDestino: "*" }
+];
+
+export const initialBoards: BoardType[] = [
+    {
+        id: '1',
+        name: 'Sistema de Ventas',
+        nodes: initialNodes,
+        edges: initialEdges,
+        zoom: 1,
+        panOffset: { x: 0, y: 0 }
+    },
+    {
+        id: '2',
+        name: 'Pizarra Vacía',
+        nodes: [],
+        edges: [],
+        zoom: 1,
+        panOffset: { x: 0, y: 0 }
+    }
 ];
 
 // Solo tipos y constantes, sin lógica de UI ni lógica de negocio

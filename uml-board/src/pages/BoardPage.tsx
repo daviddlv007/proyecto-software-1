@@ -4,6 +4,7 @@ import { initialNodes, initialEdges, NODE_HEIGHT, ATTR_HEIGHT } from '../utils/u
 import Node from '../components/Node';
 import EdgeLayer from '../components/EdgeLayer';
 import { generarBackend } from '../utils/backendGenerator';
+import { generarFrontend } from '../utils/frontendGenerator';
 
 const buttonStyle: React.CSSProperties = {
     position: "fixed",
@@ -195,6 +196,10 @@ const BoardPage = () => {
         generarBackend(nodes, edges);
     };
 
+    const handleGenerarFrontend = () => {
+        generarFrontend(nodes, edges);
+    };
+
     return (
         <div
             style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#fff' }}
@@ -217,6 +222,12 @@ const BoardPage = () => {
                 style={{ ...buttonStyle, top: "60px", left: "16px", background: "#ff9800", color: "#fff" }}
             >
                 Generar backend
+            </button>
+            <button
+                onClick={handleGenerarFrontend}
+                style={{ ...buttonStyle, top: "104px", left: "16px", background: "#2196f3", color: "#fff" }}
+            >
+                Generar frontend
             </button>
             <EdgeLayer nodes={nodes} edges={edges} onDeleteEdge={deleteEdge} />
             {nodes.map(n => (

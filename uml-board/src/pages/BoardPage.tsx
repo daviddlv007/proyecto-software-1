@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { NodeType, EdgeType, BoardType } from '../utils/umlConstants';
 import { initialBoards, NODE_HEIGHT, NODE_WIDTH, ATTR_HEIGHT } from '../utils/umlConstants';
 import Node from '../components/Node';
 import EdgeLayer from '../components/EdgeLayer';
 import { generarBackend } from '../utils/backendGenerator';
 import { generarFrontend } from '../utils/frontendGenerator';
+import { importDiagramFromImage } from '../services/diagramImportService';
 
 const buttonStyle: React.CSSProperties = {
     border: "none",
@@ -82,6 +83,11 @@ const BoardPage = () => {
     const [currentMode, setCurrentMode] = useState<'normal' | 'relation' | 'manyToMany'>('normal');
     const [isPanning, setIsPanning] = useState<boolean>(false);
     const [panStart, setPanStart] = useState<{ x: number; y: number } | null>(null);
+
+    // Estados para importación de imágenes
+    const [importing, setImporting] = useState<boolean>(false);
+    const [importProgress, setImportProgress] = useState<string>('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Sincronizar estado local cuando cambie la pizarra activa
     useEffect(() => {
@@ -456,6 +462,87 @@ const BoardPage = () => {
         generarFrontend(nodes, edges, currentBoard.name);
     };
 
+    // Funciones para importación de imágenes
+    const handleImportImage = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        const file = files[0];
+        
+        // Validaciones
+        if (!file.type.startsWith('image/')) {
+            alert('❌ Solo se permiten archivos de imagen');
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            alert('❌ El archivo debe ser menor a 5MB');
+            return;
+        }
+
+        setImporting(true);
+        console.log(`📤 Iniciando importación de: ${file.name}`);
+
+        try {
+            const result = await importDiagramFromImage(
+                file,
+                (stage) => setImportProgress(stage)
+            );
+
+            if (result.success && result.nodes && result.edges) {
+                // Los nodos e edges ya vienen con IDs únicos del servicio
+                // Solo necesitamos agregar prefijo para evitar conflictos con nodos existentes
+                const importTimestamp = Date.now();
+                
+                const importedNodes = result.nodes.map(node => ({
+                    ...node,
+                    id: `imported_${importTimestamp}_${node.id}`,
+                    // Actualizar relaciona para entidades asociativas
+                    relaciona: node.relaciona ? node.relaciona.map(relId => 
+                        `imported_${importTimestamp}_${relId}`
+                    ) : undefined
+                }));
+
+                const importedEdges = result.edges.map(edge => ({
+                    ...edge,
+                    id: `imported_${importTimestamp}_${edge.id}`,
+                    source: `imported_${importTimestamp}_${edge.source}`,
+                    target: `imported_${importTimestamp}_${edge.target}`
+                }));
+
+                setNodes(prev => [...prev, ...importedNodes]);
+                setEdges(prev => [...prev, ...importedEdges]);
+
+                console.log(`✅ Importación exitosa: ${importedNodes.length} clases, ${importedEdges.length} relaciones`);
+                console.log(`📊 Nodos importados:`, importedNodes.map(n => n.id));
+                console.log(`🔗 Edges importados:`, importedEdges.map(e => `${e.source} → ${e.target}`));
+                alert(`✅ Diagrama importado exitosamente!\n${importedNodes.length} clases y ${importedEdges.length} relaciones agregadas`);
+
+                // Ajustar vista para mostrar todo el contenido
+                setTimeout(() => handleFitAll(), 100);
+
+            } else {
+                console.error('❌ Error en importación:', result.error);
+                alert(`❌ Error importando diagrama: ${result.error}`);
+            }
+
+        } catch (error) {
+            console.error('❌ Error inesperado:', error);
+            alert(`❌ Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+        } finally {
+            setImporting(false);
+            setImportProgress('');
+            // Limpiar input file
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
+    };
+
     return (
         <div
             style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#f5f5f5', paddingTop: '70px' }}
@@ -648,6 +735,19 @@ const BoardPage = () => {
                         ➕ Nueva Clase
                     </button>
                     <button
+                        onClick={handleImportImage}
+                        style={{ 
+                            ...buttonStyle, 
+                            background: importing ? "#ccc" : "#8e24aa", 
+                            color: "#fff",
+                            opacity: importing ? 0.7 : 1
+                        }}
+                        disabled={importing}
+                        title="Importar diagrama desde imagen"
+                    >
+                        {importing ? "⏳ Importando..." : "📸 Importar Imagen"}
+                    </button>
+                    <button
                         onClick={handleStartManyToMany}
                         style={{ ...buttonStyle, background: "#388e3c", color: "#fff" }}
                         disabled={currentMode !== 'normal'}
@@ -762,6 +862,60 @@ const BoardPage = () => {
                     />
                 ))}
             </div>
+
+            {/* Input file oculto para importar imágenes */}
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelect}
+                style={{ display: 'none' }}
+            />
+
+            {/* Modal para progreso de importación */}
+            {importing && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.5)',
+                    zIndex: 5000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                }}>
+                    <div style={{
+                        background: '#fff',
+                        padding: '30px',
+                        borderRadius: '12px',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                        maxWidth: '400px',
+                        textAlign: 'center'
+                    }}>
+                        <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
+                        <h3 style={{ margin: '0 0 16px 0', color: '#333' }}>Importando Diagrama</h3>
+                        <p style={{ margin: '0 0 20px 0', color: '#666', fontSize: '14px' }}>
+                            {importProgress || 'Procesando...'}
+                        </p>
+                        <div style={{
+                            width: '100%',
+                            height: '4px',
+                            background: '#f0f0f0',
+                            borderRadius: '2px',
+                            overflow: 'hidden'
+                        }}>
+                            <div style={{
+                                width: '100%',
+                                height: '100%',
+                                background: 'linear-gradient(90deg, #8e24aa, #1976d2)',
+                                animation: 'loading 2s infinite'
+                            }}></div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -36,16 +36,29 @@ function generateForeignKeyFields(cls: ClassNode, nodes: NodeType[], edges: Edge
     let result = '';
     // Para clases asociativas, agregar foráneas a las dos clases relacionadas con CASCADE
     if (cls.asociativa && cls.relaciona) {
+        console.log(`🔧 Procesando entidad asociativa: ${cls.label}`);
+        console.log(`   Relaciona: [${cls.relaciona.join(', ')}]`);
+        
         cls.relaciona.forEach(relId => {
-            const relClass = nodes.find(n => n.id === relId);
+            // Buscar primero por ID, luego por nombre si no se encuentra
+            let relClass = nodes.find(n => n.id === relId);
+            
+            // Si no se encuentra por ID, buscar por nombre (para entidades importadas)
+            if (!relClass) {
+                relClass = nodes.find(n => n.label === relId);
+            }
+            
             if (relClass) {
                 const fieldName = relClass.label.charAt(0).toLowerCase() + relClass.label.slice(1) + "Id";
                 const constraintName = `FK_${cls.label.toUpperCase()}_${relClass.label.toUpperCase()}`;
+                console.log(`   ✅ Agregando FK: ${fieldName} → ${relClass.label}`);
                 result += `    @Column(name = "${fieldName}")\n`;
                 result += `    @JoinColumn(name = "${fieldName}", referencedColumnName = "id",\n`;
                 result += `               foreignKey = @ForeignKey(name = "${constraintName}",\n`;
                 result += `                           foreignKeyDefinition = "FOREIGN KEY (${fieldName}) REFERENCES ${relClass.label.toLowerCase()}(id) ON DELETE CASCADE"))\n`;
                 result += `    private Long ${fieldName};\n`;
+            } else {
+                console.warn(`❌ No se encontró clase relacionada para ID/nombre: ${relId}`);
             }
         });
         return result;

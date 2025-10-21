@@ -81,12 +81,48 @@ function getManyToManyRelations(cls: NodeType, nodes: NodeType[], edges: EdgeTyp
 function getForeignKeyFields(cls: NodeType, nodes: NodeType[], edges: EdgeType[]): Array<{fieldName: string, className: string}> {
     const foreignKeys: Array<{fieldName: string, className: string}> = [];
     
+    // Obtener nombres de atributos existentes para evitar duplicados
+    const existingAttributeNames = new Set((cls.attributes || []).map(attr => attr.name));
+    
+    // Para clases asociativas, agregar foráneas a las dos clases relacionadas
+    if (cls.asociativa && cls.relaciona) {
+        console.log(`🔧 Procesando entidad asociativa (frontend): ${cls.label}`);
+        console.log(`   Relaciona: [${cls.relaciona.join(', ')}]`);
+        console.log(`   Atributos existentes: [${Array.from(existingAttributeNames).join(', ')}]`);
+        
+        cls.relaciona.forEach(relId => {
+            // Buscar primero por ID, luego por nombre si no se encuentra
+            let relClass = nodes.find(n => n.id === relId);
+            
+            // Si no se encuentra por ID, buscar por nombre (para entidades importadas)
+            if (!relClass) {
+                relClass = nodes.find(n => n.label === relId);
+            }
+            
+            if (relClass) {
+                const fieldName = relClass.label.charAt(0).toLowerCase() + relClass.label.slice(1) + "Id";
+                
+                // Solo agregar si no existe ya como atributo (para entidades importadas)
+                if (!existingAttributeNames.has(fieldName)) {
+                    console.log(`   ✅ Agregando FK (frontend): ${fieldName} → ${relClass.label}`);
+                    foreignKeys.push({fieldName, className: relClass.label});
+                } else {
+                    console.log(`   ⏭️ Saltando FK ya existente (frontend): ${fieldName} → ${relClass.label}`);
+                }
+            } else {
+                console.warn(`❌ No se encontró clase relacionada (frontend) para ID/nombre: ${relId}`);
+            }
+        });
+    }
+    
     // Herencia: el campo foráneo va en la clase hija
     edges.filter(r => r.tipo === 'herencia' && r.source === cls.id).forEach(rel => {
         const parentClass = nodes.find(c => c.id === rel.target && !c.asociativa);
         if (parentClass) {
             const fieldName = parentClass.label.charAt(0).toLowerCase() + parentClass.label.slice(1) + "Id";
-            foreignKeys.push({fieldName, className: parentClass.label});
+            if (!existingAttributeNames.has(fieldName)) {
+                foreignKeys.push({fieldName, className: parentClass.label});
+            }
         }
     });
     
@@ -100,7 +136,7 @@ function getForeignKeyFields(cls: NodeType, nodes: NodeType[], edges: EdgeType[]
         const originClass = nodes.find(c => c.id === rel.source && !c.asociativa);
         if (originClass) {
             const fieldName = originClass.label.charAt(0).toLowerCase() + originClass.label.slice(1) + "Id";
-            if (!added.has(fieldName)) {
+            if (!added.has(fieldName) && !existingAttributeNames.has(fieldName)) {
                 foreignKeys.push({fieldName, className: originClass.label});
                 added.add(fieldName);
             }
@@ -216,22 +252,46 @@ class HomeScreen extends StatelessWidget {
 // Genera modelo para una clase específica
 function generateModelForClass(cls: NodeType, nodes: NodeType[], edges: EdgeType[]): string {
     const className = capitalizeFirst(cls.label);
+    
+    // Obtener todas las claves foráneas que deberían estar
     const foreignKeys = getForeignKeyFields(cls, nodes, edges);
     
-    // Atributos propios de la clase
+    // Atributos propios de la clase (excluyendo 'id')
     const ownAttributes = (cls.attributes || []).filter(attr => attr.name !== 'id');
     
-    // Generar campos para constructor y JSON
-    const allFields = [
-        'id',
-        ...ownAttributes.map(attr => attr.name),
-        ...foreignKeys.map(fk => fk.fieldName)
-    ];
+    // Crear un conjunto unificado de todos los campos únicos
+    const allFieldsSet = new Set<string>();
+    const fieldInfoMap = new Map<string, {isAttribute: boolean, attr?: any, fk?: any}>();
+    
+    // Agregar ID primero
+    allFieldsSet.add('id');
+    fieldInfoMap.set('id', {isAttribute: false});
+    
+    // Agregar atributos propios
+    ownAttributes.forEach(attr => {
+        allFieldsSet.add(attr.name);
+        fieldInfoMap.set(attr.name, {isAttribute: true, attr});
+    });
+    
+    // Agregar FK solo si no existen ya como atributos
+    foreignKeys.forEach(fk => {
+        if (!allFieldsSet.has(fk.fieldName)) {
+            allFieldsSet.add(fk.fieldName);
+            fieldInfoMap.set(fk.fieldName, {isAttribute: false, fk});
+        }
+    });
+    
+    const allFields = Array.from(allFieldsSet);
+    
+    console.log(`🔧 Generando modelo ${className}:`);
+    console.log(`   Atributos de entidad: [${ownAttributes.map(a => a.name).join(', ')}]`);
+    console.log(`   FK detectadas: [${foreignKeys.map(fk => fk.fieldName).join(', ')}]`);
+    console.log(`   Campos finales únicos: [${allFields.join(', ')}]`);
     
     const constructorParams = allFields.map(field => {
         if (field === 'id') return 'required this.id';
-        const attr = ownAttributes.find(a => a.name === field);
-        if (attr) {
+        const fieldInfo = fieldInfoMap.get(field);
+        if (fieldInfo?.isAttribute) {
             return `required this.${field}`;
         }
         return `this.${field}`;
@@ -239,18 +299,18 @@ function generateModelForClass(cls: NodeType, nodes: NodeType[], edges: EdgeType
     
     const fieldDeclarations = allFields.map(field => {
         if (field === 'id') return '  final int id;';
-        const attr = ownAttributes.find(a => a.name === field);
-        if (attr) {
-            return `  final ${mapDartType(attr.datatype)} ${field};`;
+        const fieldInfo = fieldInfoMap.get(field);
+        if (fieldInfo?.isAttribute && fieldInfo.attr) {
+            return `  final ${mapDartType(fieldInfo.attr.datatype)} ${field};`;
         }
         return `  final int? ${field};`;
     }).join('\n');
     
     const fromJsonFields = allFields.map(field => {
         if (field === 'id') return "      id: json['id'] as int";
-        const attr = ownAttributes.find(a => a.name === field);
-        if (attr) {
-            const dartType = mapDartType(attr.datatype);
+        const fieldInfo = fieldInfoMap.get(field);
+        if (fieldInfo?.isAttribute && fieldInfo.attr) {
+            const dartType = mapDartType(fieldInfo.attr.datatype);
             if (dartType === 'DateTime') {
                 return `      ${field}: DateTime.parse(json['${field}'] as String)`;
             }
@@ -260,8 +320,8 @@ function generateModelForClass(cls: NodeType, nodes: NodeType[], edges: EdgeType
     }).join(',\n');
     
     const toJsonFields = allFields.map(field => {
-        const attr = ownAttributes.find(a => a.name === field);
-        if (attr && mapDartType(attr.datatype) === 'DateTime') {
+        const fieldInfo = fieldInfoMap.get(field);
+        if (fieldInfo?.isAttribute && fieldInfo.attr && mapDartType(fieldInfo.attr.datatype) === 'DateTime') {
             return `      '${field}': ${field}.toIso8601String()`;
         }
         return `      '${field}': ${field}`;

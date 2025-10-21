@@ -1,237 +1,450 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
-type NodeType = {
+// Configuración de Supabase
+const supabaseUrl = 'https://bwduexqzhjolwfxupvco.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3ZHVleHF6aGpvbHdmeHVwdmNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5ODc3NzAsImV4cCI6MjA3NjU2Mzc3MH0.WQiWHEYBzsT0LAa5N3quDDiZlYzfOVz7lY86ZF02RjI';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+type UploadedImage = {
 	id: string;
-	label: string;
-	x: number;
-	y: number;
-	height?: number;
-	attributes?: string[];
+	name: string;
+	url: string;
+	size: number;
+	uploadedAt: Date;
 };
-
-type EdgeType = {
-	id: string;
-	source: string;
-	target: string;
-};
-
-const ATTR_HEIGHT = 28; // altura por atributo
-
-const initialNodes: NodeType[] = [
-	{ id: '1', label: 'Class1', x: 100, y: 100, attributes: [] },
-	{ id: '2', label: 'Class2', x: 300, y: 200, attributes: [] },
-	{ id: '3', label: 'Class3', x: 500, y: 300, attributes: [] }
-];
-
-const initialEdges: EdgeType[] = [
-	{ id: 'e1', source: '1', target: '2' },
-	{ id: 'e2', source: '2', target: '3' },
-	{ id: 'e3', source: '1', target: '3' },
-	{ id: 'e4', source: '1', target: '2' },
-  { id: 'e5', source: '1', target: '2' }, // Nueva relación paralela entre Class1 y Class2
-  { id: 'e6', source: '2', target: '1' }, // Relación en sentido contrario entre Class2 y Class1
-  { id: 'e7', source: '2', target: '1' }, // Relación en sentido contrario entre Class2 y Class1
-  { id: 'e8', source: '1', target: '2' }
-];
-
-const NODE_WIDTH = 150;
-const NODE_HEIGHT = 100;
-
-function getRectEdgePoint(x1: number, y1: number, x2: number, y2: number, width: number, height: number) {
-	const w = width / 2;
-	const h = height / 2;
-	const dx = x2 - x1;
-	const dy = y2 - y1;
-	let t = 1;
-	if (dx === 0) t = h / Math.abs(dy);
-	else if (dy === 0) t = w / Math.abs(dx);
-	else t = Math.min(w / Math.abs(dx), h / Math.abs(dy));
-	return { x: x1 + dx * t, y: y1 + dy * t };
-}
 
 const Debug = () => {
-	const [nodes, setNodes] = useState<NodeType[]>(initialNodes);
-	const [edges] = useState<EdgeType[]>(initialEdges);
-	const [draggingId, setDraggingId] = useState<string | null>(null);
-	const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
+	const [images, setImages] = useState<UploadedImage[]>([]);
+	const [uploading, setUploading] = useState(false);
+	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const [success, setSuccess] = useState<string | null>(null);
+	const fileInputRef = useRef<HTMLInputElement>(null);
 
-	const handleMouseDown = (e: React.MouseEvent, node: NodeType) => {
-		setDraggingId(node.id);
-		setDragOffset({ x: e.clientX - node.x, y: e.clientY - node.y });
-	};
+	// Función para subir archivo a Supabase
+	const uploadFile = async (file: File) => {
+		try {
+			setUploading(true);
+			setError(null);
+			setSuccess(null);
 
-	const handleMouseUp = () => {
-		setDraggingId(null);
-		setDragOffset(null);
-	};
+			// Generar nombre único para el archivo
+			const fileExt = file.name.split('.').pop();
+			const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
 
-	const handleMouseMove = (e: React.MouseEvent) => {
-		if (draggingId && dragOffset) {
-			setNodes(nodes.map(n =>
-				n.id === draggingId ? { ...n, x: e.clientX - dragOffset.x, y: e.clientY - dragOffset.y } : n
-			));
+			console.log(`📤 Subiendo archivo: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+
+			// Subir archivo al bucket 'imagenes'
+			const { data, error: uploadError } = await supabase.storage
+				.from('imagenes')
+				.upload(fileName, file);
+
+			if (uploadError) {
+				throw new Error(`Error al subir: ${uploadError.message}`);
+			}
+
+			console.log('✅ Archivo subido exitosamente:', data);
+
+			// Obtener URL pública
+			const { data: urlData } = supabase.storage
+				.from('imagenes')
+				.getPublicUrl(fileName);
+
+			const newImage: UploadedImage = {
+				id: fileName,
+				name: file.name,
+				url: urlData.publicUrl,
+				size: file.size,
+				uploadedAt: new Date()
+			};
+
+			setImages(prev => [newImage, ...prev]);
+			setSuccess(`✅ ${file.name} subido exitosamente`);
+
+		} catch (err) {
+			console.error('❌ Error en upload:', err);
+			setError(err instanceof Error ? err.message : 'Error desconocido');
+		} finally {
+			setUploading(false);
 		}
 	};
 
-	const addAttribute = (id: string) => {
-		setNodes(nodes.map(n =>
-			n.id === id
-				? {
-					...n,
-					attributes: [...(n.attributes ?? []), `Atributo${(n.attributes?.length ?? 0) + 1}`],
-					height: (n.height ?? NODE_HEIGHT) + ATTR_HEIGHT
-				}
-				: n
-		));
-	};
+	// Función para cargar imágenes existentes
+	const loadImages = async () => {
+		try {
+			setLoading(true);
+			setError(null);
 
-	// Agrupa relaciones paralelas entre los mismos nodos, sin importar dirección
-	const getParallelEdgeInfo = () => {
-		const edgeGroups: Record<string, EdgeType[]> = {};
-		edges.forEach(edge => {
-			// Clave única para el par de nodos, sin importar dirección
-			const key = [edge.source, edge.target].sort().join('->');
-			if (!edgeGroups[key]) edgeGroups[key] = [];
-			edgeGroups[key].push(edge);
-		});
-		const edgeIndexMap: Record<string, { index: number; total: number; reverse: boolean; groupKey: string }> = {};
-		Object.keys(edgeGroups).forEach(key => {
-			const group = edgeGroups[key];
-			group.forEach((edge, idx) => {
-				const reverse = edge.source > edge.target; // true si es en sentido "contrario" al orden
-				edgeIndexMap[edge.id] = {
-					index: idx,
-					total: group.length,
-					reverse,
-					groupKey: key
+			console.log('🔍 Cargando lista de archivos...');
+
+			const { data, error: listError } = await supabase.storage
+				.from('imagenes')
+				.list('', {
+					limit: 100,
+					offset: 0,
+					sortBy: { column: 'created_at', order: 'desc' }
+				});
+
+			if (listError) {
+				throw new Error(`Error al listar: ${listError.message}`);
+			}
+
+			console.log(`📁 Encontrados ${data?.length || 0} archivos`);
+
+			const imageList: UploadedImage[] = (data || []).map(file => {
+				const { data: urlData } = supabase.storage
+					.from('imagenes')
+					.getPublicUrl(file.name);
+
+				return {
+					id: file.name,
+					name: file.name,
+					url: urlData.publicUrl,
+					size: file.metadata?.size || 0,
+					uploadedAt: new Date(file.created_at || Date.now())
 				};
 			});
-		});
-		return edgeIndexMap;
+
+			setImages(imageList);
+
+		} catch (err) {
+			console.error('❌ Error cargando imágenes:', err);
+			setError(err instanceof Error ? err.message : 'Error desconocido');
+		} finally {
+			setLoading(false);
+		}
 	};
 
-	const edgeIndexMap = getParallelEdgeInfo();
+	// Función para eliminar archivo
+	const deleteImage = async (fileName: string) => {
+		try {
+			setError(null);
+			
+			console.log(`🗑️ Eliminando archivo: ${fileName}`);
 
-	const renderEdges = () => (
-		<svg style={{ position: 'absolute', width: '100%', height: '100%', pointerEvents: 'none' }}>
-			{edges.map(edge => {
-				const src = nodes.find(n => n.id === edge.source);
-				const tgt = nodes.find(n => n.id === edge.target);
-				if (!src || !tgt) return null;
+			const { error: deleteError } = await supabase.storage
+				.from('imagenes')
+				.remove([fileName]);
 
-				const srcHeight = src.height ?? NODE_HEIGHT;
-				const tgtHeight = tgt.height ?? NODE_HEIGHT;
+			if (deleteError) {
+				throw new Error(`Error al eliminar: ${deleteError.message}`);
+			}
 
-				const info = edgeIndexMap[edge.id] || { index: 0, total: 1, reverse: false, groupKey: '' };
+			setImages(prev => prev.filter(img => img.id !== fileName));
+			setSuccess(`🗑️ ${fileName} eliminado exitosamente`);
 
-				let offset = 0;
-				if (info.total > 1) {
-					const separation = 18;
-					offset = (info.index - (info.total - 1) / 2) * separation;
-				}
+		} catch (err) {
+			console.error('❌ Error eliminando:', err);
+			setError(err instanceof Error ? err.message : 'Error desconocido');
+		}
+	};
 
-				// Si hay relaciones en ambas direcciones, separa los offsets en sentidos opuestos
-				const reverseKey = `${edge.target}->${edge.source}`;
-				const hasReverse = !!edgeIndexMap[Object.keys(edgeIndexMap).find(id =>
-					edgeIndexMap[id].groupKey === reverseKey
-				) ?? ''];
+	// Manejador de selección de archivos
+	const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const files = e.target.files;
+		if (files && files.length > 0) {
+			const file = files[0];
+			
+			// Validar tipo de archivo
+			if (!file.type.startsWith('image/')) {
+				setError('❌ Solo se permiten archivos de imagen');
+				return;
+			}
 
-				// Si hay relaciones en ambas direcciones, invierte el offset para las reversas
-				if (hasReverse && info.reverse) {
-					offset = -offset;
-				}
+			// Validar tamaño (máximo 5MB)
+			if (file.size > 5 * 1024 * 1024) {
+				setError('❌ El archivo debe ser menor a 5MB');
+				return;
+			}
 
-				const x1c = src.x + NODE_WIDTH / 2;
-				const y1c = src.y + srcHeight / 2;
-				const x2c = tgt.x + NODE_WIDTH / 2;
-				const y2c = tgt.y + tgtHeight / 2;
+			uploadFile(file);
+		}
+	};
 
-				const dx = x2c - x1c;
-				const dy = y2c - y1c;
-				const len = Math.sqrt(dx * dx + dy * dy) || 1;
-				const nx = -dy / len;
-				const ny = dx / len;
-
-				const x1c_off = x1c + nx * offset;
-				const y1c_off = y1c + ny * offset;
-				const x2c_off = x2c + nx * offset;
-				const y2c_off = y2c + ny * offset;
-
-				const { x: x1, y: y1 } = getRectEdgePoint(x1c_off, y1c_off, x2c_off, y2c_off, NODE_WIDTH, srcHeight);
-				const { x: x2, y: y2 } = getRectEdgePoint(x2c_off, y2c_off, x1c_off, y1c_off, NODE_WIDTH, tgtHeight);
-
-				return (
-					<g key={edge.id}>
-						<line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#000" strokeWidth={2} />
-						<circle cx={x1} cy={y1} r={5} fill="#000" />
-						<circle cx={x2} cy={y2} r={5} fill="#000" />
-					</g>
-				);
-			})}
-		</svg>
-	);
+	// Función para formatear tamaño de archivo
+	const formatFileSize = (bytes: number) => {
+		if (bytes === 0) return '0 B';
+		const k = 1024;
+		const sizes = ['B', 'KB', 'MB', 'GB'];
+		const i = Math.floor(Math.log(bytes) / Math.log(k));
+		return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+	};
 
 	return (
-		<div
-			style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#fff' }}
-			onMouseMove={handleMouseMove}
-			onMouseUp={handleMouseUp}
-			onMouseLeave={handleMouseUp}
-		>
-			{renderEdges()}
-			{nodes.map(n => (
-				<div
-					key={n.id}
+		<div style={{ 
+			padding: '20px', 
+			maxWidth: '1200px', 
+			margin: '0 auto',
+			fontFamily: 'Arial, sans-serif' 
+		}}>
+			{/* Header */}
+			<div style={{ marginBottom: '30px', textAlign: 'center' }}>
+				<h1 style={{ color: '#333', marginBottom: '10px' }}>
+					🖼️ Demo Supabase Storage
+				</h1>
+				<p style={{ color: '#666', fontSize: '16px' }}>
+					Prueba de subida, descarga y gestión de imágenes usando Supabase como servidor de archivos estáticos
+				</p>
+				<div style={{ 
+					background: '#f8f9fa', 
+					padding: '15px', 
+					borderRadius: '8px',
+					margin: '15px 0',
+					fontSize: '14px',
+					color: '#555'
+				}}>
+					<strong>📡 Bucket:</strong> imagenes <br/>
+					<strong>🔗 URL:</strong> {supabaseUrl}
+				</div>
+			</div>
+
+			{/* Controles */}
+			<div style={{ 
+				display: 'flex', 
+				gap: '15px', 
+				marginBottom: '20px',
+				flexWrap: 'wrap',
+				justifyContent: 'center'
+			}}>
+				<button
+					onClick={() => fileInputRef.current?.click()}
+					disabled={uploading}
 					style={{
-						position: 'absolute',
-						left: n.x,
-						top: n.y,
-						width: NODE_WIDTH,
-						height: n.height ?? NODE_HEIGHT,
-						border: '1px solid #000',
-						display: 'flex',
-						flexDirection: 'column',
-						alignItems: 'center',
-						justifyContent: 'flex-start',
-						cursor: 'move',
-						background: '#fff',
-						boxSizing: 'border-box'
+						background: uploading ? '#ccc' : '#4CAF50',
+						color: 'white',
+						border: 'none',
+						padding: '12px 20px',
+						borderRadius: '6px',
+						cursor: uploading ? 'not-allowed' : 'pointer',
+						fontSize: '16px',
+						fontWeight: 'bold'
 					}}
-					onMouseDown={e => handleMouseDown(e, n)}
 				>
-					<div style={{ width: '100%', textAlign: 'center', fontWeight: 'bold', marginTop: 8 }}>
-						{n.label}
-					</div>
-					<div style={{ width: '100%' }}>
-						{(n.attributes ?? []).map((attr, idx) => (
-							<div key={idx} style={{
-								textAlign: 'left',
-								paddingLeft: 8,
-								height: ATTR_HEIGHT,
-								lineHeight: `${ATTR_HEIGHT}px`,
-								borderBottom: '1px solid #eee'
-							}}>
-								{attr}
-							</div>
-						))}
-					</div>
-					{/* Botón ícono "+" en la esquina inferior derecha */}
+					{uploading ? '⏳ Subiendo...' : '📤 Subir Imagen'}
+				</button>
+
+				<button
+					onClick={loadImages}
+					disabled={loading}
+					style={{
+						background: loading ? '#ccc' : '#2196F3',
+						color: 'white',
+						border: 'none',
+						padding: '12px 20px',
+						borderRadius: '6px',
+						cursor: loading ? 'not-allowed' : 'pointer',
+						fontSize: '16px',
+						fontWeight: 'bold'
+					}}
+				>
+					{loading ? '⏳ Cargando...' : '🔄 Cargar Lista'}
+				</button>
+
+				{images.length > 0 && (
 					<button
-						onClick={e => {
-							e.stopPropagation();
-							addAttribute(n.id);
+						onClick={async () => {
+							try {
+								const allUrls = images.map(img => `${img.name}: ${img.url}`).join('\n');
+								await navigator.clipboard.writeText(allUrls);
+								setSuccess(`📋 ${images.length} URLs copiadas al portapapeles`);
+							} catch (err) {
+								console.error('Error copiando URLs:', err);
+								setError('❌ No se pudieron copiar las URLs');
+							}
 						}}
-						title="Agregar atributo"
 						style={{
-							position: 'absolute',
-							bottom: 8,
-							right: 8
+							background: '#9C27B0',
+							color: 'white',
+							border: 'none',
+							padding: '12px 20px',
+							borderRadius: '6px',
+							cursor: 'pointer',
+							fontSize: '16px',
+							fontWeight: 'bold'
+						}}
+						title="Copiar todas las URLs con nombres de archivo"
+					>
+						📋 Copiar Todas las URLs
+					</button>
+				)}
+			</div>
+
+			{/* Input file oculto */}
+			<input
+				ref={fileInputRef}
+				type="file"
+				accept="image/*"
+				onChange={handleFileSelect}
+				style={{ display: 'none' }}
+			/>
+
+			{/* Mensajes de estado */}
+			{error && (
+				<div style={{
+					background: '#ffebee',
+					color: '#c62828',
+					padding: '15px',
+					borderRadius: '6px',
+					marginBottom: '20px',
+					border: '1px solid #ffcdd2'
+				}}>
+					{error}
+				</div>
+			)}
+
+			{success && (
+				<div style={{
+					background: '#e8f5e8',
+					color: '#2e7d32',
+					padding: '15px',
+					borderRadius: '6px',
+					marginBottom: '20px',
+					border: '1px solid #c8e6c9'
+				}}>
+					{success}
+				</div>
+			)}
+
+			{/* Grid de imágenes */}
+			<div style={{
+				display: 'grid',
+				gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+				gap: '20px',
+				marginTop: '20px'
+			}}>
+				{images.map((image) => (
+					<div
+						key={image.id}
+						style={{
+							border: '1px solid #ddd',
+							borderRadius: '8px',
+							overflow: 'hidden',
+							background: '#fff',
+							boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
 						}}
 					>
-						+
-					</button>
+						{/* Imagen */}
+						<div style={{ height: '200px', overflow: 'hidden' }}>
+							<img
+								src={image.url}
+								alt={image.name}
+								style={{
+									width: '100%',
+									height: '100%',
+									objectFit: 'cover'
+								}}
+								onError={(e) => {
+									const target = e.target as HTMLImageElement;
+									target.style.display = 'none';
+									target.parentElement!.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#f5f5f5;color:#999;">❌ Error cargando imagen</div>';
+								}}
+							/>
+						</div>
+
+						{/* Info */}
+						<div style={{ padding: '15px' }}>
+							<h3 style={{ 
+								margin: '0 0 8px 0', 
+								fontSize: '14px',
+								color: '#333',
+								wordBreak: 'break-all'
+							}}>
+								📄 {image.name}
+							</h3>
+							<p style={{ margin: '4px 0', fontSize: '12px', color: '#666' }}>
+								📏 {formatFileSize(image.size)}
+							</p>
+							<p style={{ margin: '4px 0', fontSize: '12px', color: '#666' }}>
+								🕒 {image.uploadedAt.toLocaleString()}
+							</p>
+
+							{/* Botones */}
+							<div style={{ 
+								display: 'flex', 
+								gap: '6px', 
+								marginTop: '12px',
+								flexWrap: 'wrap'
+							}}>
+								<a
+									href={image.url}
+									target="_blank"
+									rel="noopener noreferrer"
+									style={{
+										background: '#4CAF50',
+										color: 'white',
+										padding: '6px 10px',
+										borderRadius: '4px',
+										textDecoration: 'none',
+										fontSize: '11px',
+										flex: '1 1 auto',
+										textAlign: 'center',
+										minWidth: '60px'
+									}}
+								>
+									🔗 Ver
+								</a>
+								<button
+									onClick={async () => {
+										try {
+											await navigator.clipboard.writeText(image.url);
+											setSuccess(`📋 URL copiada: ${image.name}`);
+										} catch (err) {
+											console.error('Error copiando URL:', err);
+											setError('❌ No se pudo copiar la URL');
+										}
+									}}
+									style={{
+										background: '#FF9800',
+										color: 'white',
+										border: 'none',
+										padding: '6px 10px',
+										borderRadius: '4px',
+										cursor: 'pointer',
+										fontSize: '11px',
+										flex: '1 1 auto',
+										minWidth: '70px'
+									}}
+									title={`Copiar URL: ${image.url}`}
+								>
+									📋 URL
+								</button>
+								<button
+									onClick={() => deleteImage(image.id)}
+									style={{
+										background: '#f44336',
+										color: 'white',
+										border: 'none',
+										padding: '6px 10px',
+										borderRadius: '4px',
+										cursor: 'pointer',
+										fontSize: '11px',
+										flex: '1 1 auto',
+										minWidth: '70px'
+									}}
+								>
+									🗑️ Del
+								</button>
+							</div>
+						</div>
+					</div>
+				))}
+			</div>
+
+			{/* Estado vacío */}
+			{images.length === 0 && !loading && (
+				<div style={{
+					textAlign: 'center',
+					padding: '60px 20px',
+					color: '#999',
+					border: '2px dashed #ddd',
+					borderRadius: '8px',
+					marginTop: '20px'
+				}}>
+					<h3>📂 No hay imágenes</h3>
+					<p>Sube una imagen o carga la lista para ver el contenido del bucket</p>
 				</div>
-			))}
+			)}
 		</div>
 	);
 };

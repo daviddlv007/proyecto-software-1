@@ -1,0 +1,173 @@
+.uml-prompt-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.uml-prompt-container {
+  background-color: white;
+  border-radius: 8px;
+  width: 600px;
+  max-width: 90%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.uml-prompt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.uml-prompt-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #333;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #666;
+}
+
+.uml-prompt-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex-grow: 1;
+}
+
+.instructions {
+  margin-bottom: 15px;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.uml-prompt-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 1rem;
+  resize: none;
+}
+
+.parsed-command {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.parsed-command h4 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.parsed-command pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: monospace;
+}
+
+.feedback {
+  margin-top: 15px;
+  padding: 10px;
+  border-radius: 4px;
+}
+
+.feedback.success {
+  background-color: #e6f7e6;
+  color: #2e7d32;
+}
+
+.feedback.error {
+  background-color: #fdecea;
+  color: #c62828;
+}
+
+.uml-prompt-footer {
+  padding: 16px 20px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.process-button {
+  background-color: #5e35b1;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 20px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.process-button:hover {
+  background-color: #4527a0;
+}
+
+.process-button:disabled {
+  background-color: #b39ddb;
+  cursor: not-allowed;
+}
+
+/*boton del prompt*/
+.uml-open-prompt-button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: #5e35b1;  
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 20px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.uml-open-prompt-button:hover {
+  background-color: #4527a0;
+}
+
+.uml-open-prompt-button:disabled {
+  background-color: #b39ddb;
+  cursor: not-allowed;
+}
+
+/*segundo boton del prompt*/
+/*
+.toolbar-button[title="Asistente UML"] {
+  background-color: #5e35b1;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  padding: 8px;
+  cursor: pointer;
+  margin-right: 8px;
+  transition: background-color 0.2s;
+}
+
+.toolbar-button[title="Asistente UML"]:hover {
+  background-color: #4527a0;
+}*/

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 import EdgeLayer from '../components/EdgeLayer';
 import Node from '../components/Node';
@@ -192,7 +192,33 @@ const BoardPage = () => {
   // Estados para importación de diagramas
   const jsonInputRef = useRef<HTMLInputElement>(null);
 
-  // 🔄 Funciones de conversión entre tipos Supabase y UML Constants
+  // � Sistema de debounce para guardado automático (evita refrescamiento durante edición)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Función de guardado con debounce
+  const debouncedSave = useCallback(() => {
+    // Limpiar timeout anterior si existe
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Programar nuevo guardado después de 2 segundos de inactividad
+    saveTimeoutRef.current = setTimeout(async () => {
+      console.log('💾 Guardado automático ejecutándose...');
+      await saveDiagram();
+    }, 2000); // 2 segundos de delay
+  }, [saveDiagram]);
+
+  // 🔧 Limpiar timeout al desmontar componente
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // �🔄 Funciones de conversión entre tipos Supabase y UML Constants
   const convertSupabaseToUMLNodes = (supabaseNodes: SupabaseNode[]): NodeType[] => {
     return supabaseNodes.map(node => {
       const attributes =
@@ -292,8 +318,8 @@ const BoardPage = () => {
   const currentBoardData = boards.find(b => b.id === currentBoardId);
 
   // 🔄 Funciones adaptadoras para compatibilidad con código existente
-  const updateNodePosition = async (nodeId: string, x: number, y: number) => {
-    // Actualizar posición en el store de Supabase
+  const updateNodePosition = (nodeId: string, x: number, y: number) => {
+    // 🔧 SOLUCIÓN: Solo actualizar posición localmente, sin guardar inmediatamente
     const nodeChanges: NodeChange[] = [
       {
         id: nodeId,
@@ -302,7 +328,12 @@ const BoardPage = () => {
       },
     ];
     onNodesChange(nodeChanges);
-    await saveDiagram();
+    // 🚫 REMOVIDO: await saveDiagram(); - Causaba lag durante drag
+  };
+
+  const finishNodeDrag = () => {
+    // 🔧 Guardar solo cuando termine el drag para evitar lag
+    debouncedSave();
   };
 
   const removeNodeAndEdges = async (nodeId: string) => {
@@ -416,18 +447,23 @@ const BoardPage = () => {
   };
 
   const handleMouseUp = () => {
+    // 🔧 Si estábamos dragging, guardar la posición final
+    if (draggingId) {
+      finishNodeDrag();
+    }
+    
     setDraggingId(null);
     setDragOffset(null);
     setIsPanning(false);
     setPanStart(null);
   };
 
-  const handleMouseMove = async (e: React.MouseEvent) => {
+  const handleMouseMove = (e: React.MouseEvent) => {
     if (draggingId && dragOffset) {
-      // 🔄 Mover nodo usando Supabase
+      // � Mover nodo solo localmente (sin await ni guardado inmediato)
       const newX = e.clientX / zoom - panOffset.x - dragOffset.x;
       const newY = e.clientY / zoom - panOffset.y - dragOffset.y;
-      await updateNodePosition(draggingId, newX, newY);
+      updateNodePosition(draggingId, newX, newY);
     } else if (isPanning && panStart) {
       // Hacer panning del canvas
       setPanOffset({
@@ -456,7 +492,9 @@ const BoardPage = () => {
       // Actualizar la altura del nodo en ReactFlow después de agregar atributo
       // Usar updateNode del store directamente en lugar de nodeChanges
       updateNode(id, { attributes: newAttrs } as any);
-      await saveDiagram();
+      
+      // 🔧 Programar guardado con debounce
+      debouncedSave();
     }
   };
 
@@ -472,13 +510,18 @@ const BoardPage = () => {
       // Actualizar la altura del nodo en ReactFlow después de eliminar atributo
       // Usar updateNode del store directamente en lugar de nodeChanges
       updateNode(nodeId, { attributes: newAttrs } as any);
-      await saveDiagram();
+      
+      // 🔧 Programar guardado con debounce
+      debouncedSave();
     }
   };
 
   const editNodeLabel = async (id: string, newLabel: string) => {
+    // 🔧 SOLUCIÓN: Solo actualizar localmente, sin guardar inmediatamente
     await updateNode(id, { label: newLabel });
-    await saveDiagram();
+    
+    // � Programar guardado con debounce para evitar refrescamiento durante edición
+    debouncedSave();
   };
 
   const editAttribute = async (
@@ -494,9 +537,13 @@ const BoardPage = () => {
           idx === attrIdx ? { ...attr, [field === 'datatype' ? 'type' : field]: newValue } : attr
         ) || [];
 
-      await updateNodeData(nodeId, {
+      // 🔧 SOLUCIÓN: Solo actualizar localmente, sin guardar inmediatamente
+      await updateNode(nodeId, {
         attributes: updatedAttrs,
       });
+      
+      // � Programar guardado con debounce para evitar refrescamiento durante edición
+      debouncedSave();
     }
   };
 

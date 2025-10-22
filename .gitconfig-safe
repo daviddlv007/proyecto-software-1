@@ -1,0 +1,34 @@
+# Configuración de seguridad para Git
+# Añadir a ~/.gitconfig o usar git config --global
+
+[alias]
+    # Comandos seguros
+    safe-reset = "!f() { echo 'Creando backup antes de reset...'; git stash push -m 'backup-before-reset'; git reset \"$@\"; }; f"
+    safe-clean = "!f() { echo 'Mostrando archivos a eliminar:'; git clean -n; read -p 'Continuar? (y/N): ' confirm; [ \"$confirm\" = 'y' ] && git clean \"$@\" || echo 'Cancelado'; }; f"
+    
+    # Backup rápido
+    backup = "!f() { git add .; git commit -m \"Backup $(date)\"; git push; }; f"
+    
+    # Ver cambios antes de hacer algo peligroso
+    check = "!git status && git log --oneline -10"
+
+[push]
+    # Solo push de la rama actual
+    default = simple
+    
+[pull]
+    # Evitar merge commits automáticos
+    rebase = true
+
+[core]
+    # Proteger contra pérdida accidental
+    preloadindex = true
+    untrackedCache = true
+
+[gc]
+    # Deshabilitar garbage collection automática
+    auto = 0
+
+# Protección adicional: crear alias peligrosos que requieren confirmación
+[alias]
+    force-push = "!f() { echo '🚨 PELIGRO: Force push detectado'; read -p 'Escribir YES para continuar: ' confirm; [ \"$confirm\" = 'YES' ] && git push --force \"$@\" || echo 'Cancelado por seguridad'; }; f"

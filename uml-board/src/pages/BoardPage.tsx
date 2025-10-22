@@ -7,6 +7,11 @@ import { generarBackend } from '../utils/backendGenerator';
 import { generarFrontend } from '../utils/frontendGenerator';
 import { importDiagramFromImage } from '../services/diagramImportService';
 
+//me falta agregar unnos import aqui
+//--------------------------------------------
+//import UmlPrompt from './UmlPrompt';
+//import './stylesUmlPrompt.css';
+
 const buttonStyle: React.CSSProperties = {
     border: "none",
     borderRadius: 8,
@@ -61,6 +66,10 @@ const statusStyle: React.CSSProperties = {
 };
 
 const BoardPage = () => {
+
+    //new import de klaus
+    //const [isPromptOpen, setIsPromptOpen] = useState(false);
+
     // Estado simple de múltiples pizarras usando la estructura de constantes
     const [boards, setBoards] = useState<BoardType[]>(initialBoards);
     const [currentBoardId, setCurrentBoardId] = useState<string>('1');
@@ -303,6 +312,31 @@ const BoardPage = () => {
         ));
     };
 
+    //------------------------------------------------------------------------
+    /*const handleCreateNodeFromPrompt = (newNode: NodeType) => {
+  setNodes((prevNodes) => [...prevNodes, newNode]);
+};
+
+const handleCreateEdgeFromPrompt = (newEdge: EdgeType) => {
+  setEdges((prevEdges) => [...prevEdges, newEdge]);
+};
+
+const handleUpdateNodeFromPrompt = (nodeId: string, updates: Partial<NodeType>) => {
+  setNodes((prevNodes) => 
+    prevNodes.map(node => 
+      node.id === nodeId ? { ...node, ...updates } : node
+    )
+  );
+};
+
+const handleUpdateEdgeFromPrompt = (edgeId: string, updates: Partial<EdgeType>) => {
+  setEdges((prevEdges) => 
+    prevEdges.map(edge => 
+      edge.id === edgeId ? { ...edge, ...updates } : edge
+    )
+  );
+};*/
+//------------------------------------------------------------------------------
     // Relaciones
     const handleStartRelation = (id: string, type: string) => {
         setRelationMode({ sourceId: id, type });
@@ -804,7 +838,18 @@ const BoardPage = () => {
                         title="Ajustar todo en pantalla"
                     >
                         📐
-                    </button>
+                    </button> 
+//-------------------------------                                     
+                    <button 
+  className="toolbar-button"
+  title="Asistente UML"
+  //onClick={() => setIsPromptOpen(true)}
+>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+  </svg>
+</button>
+//---------------------------------
                 </div>
 
                 {/* Espacio flexible */}
@@ -916,7 +961,19 @@ const BoardPage = () => {
                     </div>
                 </div>
             )}
+            
+         <UmlPromptPage 
+ // isOpen={isPromptOpen} 
+  //onClose={() => setIsPromptOpen(false)}
+  //onCreateNode={handleCreateNodeFromPrompt}
+ // onCreateEdge={handleCreateEdgeFromPrompt}
+  //onUpdateNode={handleUpdateNodeFromPrompt}
+  //onUpdateEdge={handleUpdateEdgeFromPrompt}
+ // existingNodes={nodes}
+  //existingEdges={edges}
+/>
         </div>
+
     );
 };
 

@@ -336,8 +336,8 @@ export const useClassStore = create<Store>((set, get) => ({
       const { error } = await supabase
         .from('diagrams')
         .update({
-          nodes: nodes as Json,
-          edges: edges as Json,
+          nodes: JSON.parse(JSON.stringify(nodes)) as Json,
+          edges: JSON.parse(JSON.stringify(edges)) as Json,
           updated_at: new Date().toISOString(),
         })
         .eq('id', state.currentDiagramId);

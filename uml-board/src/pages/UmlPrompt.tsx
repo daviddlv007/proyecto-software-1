@@ -27,7 +27,7 @@ const UmlPromptPage: React.FC<UmlPromptPageProps> = ({
   const [prompt, setPrompt] = useState('');
   const [processing, setProcessing] = useState(false);
   const [feedback, setFeedback] = useState('');
-  const [parsedCommand, setParsedCommand] = useState<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const [parsedCommand, setParsedCommand] = useState<any>(null);
 
   if (!isOpen) return null;
 
@@ -37,8 +37,6 @@ const UmlPromptPage: React.FC<UmlPromptPageProps> = ({
   };
 
   const parsePrompt = (promptText: string): any => {
-    // eslint-disable-line @typescript-eslint/no-explicit-any
-
     // Palabras clave para detectar acciones
     const createClassKeywords = ['crear clase', 'nueva clase', 'agrega clase', 'crea una clase'];
     const editClassKeywords = [
@@ -194,7 +192,7 @@ const UmlPromptPage: React.FC<UmlPromptPageProps> = ({
 
       if (classNameMatch && classNameMatch[1]) {
         const className = classNameMatch[1];
-        const updates: any = { attributes: [] }; // eslint-disable-line @typescript-eslint/no-explicit-any
+        const updates: any = { attributes: [] };
 
         // Buscar cambios en atributos
         const addAttrRegex = /agregar\s+(?:atributo|campo)\s+(\w+)\s+(?:tipo|de tipo)?\s+(\w+)/gi;

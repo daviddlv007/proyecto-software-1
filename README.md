@@ -1,1 +1,0 @@
-Parcial 1 - Ingeniería de Software 1

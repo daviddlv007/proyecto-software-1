@@ -7,8 +7,8 @@ const AppRoutes: React.FC = () => {
   return (
     <Routes>
       {/* Inicio directo en la pizarra */}
-      <Route path="/" element={<BoardPage />} />  
-      <Route path="/debug" element={<Debug />} />
+      <Route path='/' element={<BoardPage />} />
+      <Route path='/debug' element={<Debug />} />
     </Routes>
   );
 };

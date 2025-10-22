@@ -1,154 +1,179 @@
+/* eslint-disable no-useless-escape */
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import type { NodeType, EdgeType } from './umlConstants';
 
 // Utilidades
 function capitalizeFirst(str: string): string {
-    return str.charAt(0).toUpperCase() + str.slice(1);
+  return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 function mapDartType(type: string): string {
-    switch (type) {
-        case 'Integer': return 'int';
-        case 'Float': return 'double';
-        case 'Boolean': return 'bool';
-        case 'Date': return 'DateTime';
-        case 'String': return 'String';
-        default: return 'String';
-    }
+  switch (type) {
+    case 'Integer':
+      return 'int';
+    case 'Float':
+      return 'double';
+    case 'Boolean':
+      return 'bool';
+    case 'Date':
+      return 'DateTime';
+    case 'String':
+      return 'String';
+    default:
+      return 'String';
+  }
 }
 
 // Obtiene el primer atributo después del ID para usar como clave sustituta
 function getDisplayAttribute(className: string, nodes: NodeType[]): string {
-    const targetClass = nodes.find(node => node.label === className);
-    if (!targetClass || !targetClass.attributes) return 'nombre'; // fallback
-    
-    const nonIdAttributes = targetClass.attributes.filter(attr => attr.name !== 'id');
-    return nonIdAttributes.length > 0 ? nonIdAttributes[0].name : 'nombre';
+  const targetClass = nodes.find(node => node.label === className);
+  if (!targetClass || !targetClass.attributes) return 'nombre'; // fallback
+
+  const nonIdAttributes = targetClass.attributes.filter(attr => attr.name !== 'id');
+  return nonIdAttributes.length > 0 ? nonIdAttributes[0].name : 'nombre';
 }
 
 // Detecta si una clase tiene relaciones muchos-a-muchos a través de entidades asociativas
-function getManyToManyRelations(cls: NodeType, nodes: NodeType[], edges: EdgeType[]): Array<{
-    associativeEntity: NodeType,
-    relatedEntity: NodeType,
-    isMainEntity: boolean
+function getManyToManyRelations(
+  cls: NodeType,
+  nodes: NodeType[],
+  edges: EdgeType[]
+): Array<{
+  associativeEntity: NodeType;
+  relatedEntity: NodeType;
+  isMainEntity: boolean;
 }> {
-    const manyToManyRelations: Array<{
-        associativeEntity: NodeType,
-        relatedEntity: NodeType,
-        isMainEntity: boolean
-    }> = [];
-    
-    // Buscar entidades asociativas que están conectadas a esta clase
-    const associativeEntities = nodes.filter(node => node.asociativa);
-    
-    associativeEntities.forEach(assocEntity => {
-        // Verificar si esta entidad asociativa está conectada a la clase actual
-        const edgeToAssoc = edges.find(edge => 
-            (edge.source === cls.id && edge.target === assocEntity.id) ||
-            (edge.source === assocEntity.id && edge.target === cls.id)
-        );
-        
-        if (edgeToAssoc) {
-            // Buscar la otra entidad conectada a la misma entidad asociativa
-            const otherEdges = edges.filter(edge => 
-                ((edge.source === assocEntity.id || edge.target === assocEntity.id) &&
-                 edge.source !== cls.id && edge.target !== cls.id)
-            );
-            
-            otherEdges.forEach(otherEdge => {
-                const relatedEntityId = otherEdge.source === assocEntity.id ? otherEdge.target : otherEdge.source;
-                const relatedEntity = nodes.find(node => node.id === relatedEntityId && !node.asociativa);
-                
-                if (relatedEntity) {
-                    // Determinar cuál es la entidad principal (ID menor)
-                    const isMainEntity = cls.id < relatedEntity.id;
-                    
-                    manyToManyRelations.push({
-                        associativeEntity: assocEntity,
-                        relatedEntity,
-                        isMainEntity
-                    });
-                }
-            });
+  const manyToManyRelations: Array<{
+    associativeEntity: NodeType;
+    relatedEntity: NodeType;
+    isMainEntity: boolean;
+  }> = [];
+
+  // Buscar entidades asociativas que están conectadas a esta clase
+  const associativeEntities = nodes.filter(node => node.asociativa);
+
+  associativeEntities.forEach(assocEntity => {
+    // Verificar si esta entidad asociativa está conectada a la clase actual
+    const edgeToAssoc = edges.find(
+      edge =>
+        (edge.source === cls.id && edge.target === assocEntity.id) ||
+        (edge.source === assocEntity.id && edge.target === cls.id)
+    );
+
+    if (edgeToAssoc) {
+      // Buscar la otra entidad conectada a la misma entidad asociativa
+      const otherEdges = edges.filter(
+        edge =>
+          (edge.source === assocEntity.id || edge.target === assocEntity.id) &&
+          edge.source !== cls.id &&
+          edge.target !== cls.id
+      );
+
+      otherEdges.forEach(otherEdge => {
+        const relatedEntityId =
+          otherEdge.source === assocEntity.id ? otherEdge.target : otherEdge.source;
+        const relatedEntity = nodes.find(node => node.id === relatedEntityId && !node.asociativa);
+
+        if (relatedEntity) {
+          // Determinar cuál es la entidad principal (ID menor)
+          const isMainEntity = cls.id < relatedEntity.id;
+
+          manyToManyRelations.push({
+            associativeEntity: assocEntity,
+            relatedEntity,
+            isMainEntity,
+          });
         }
-    });
-    
-    return manyToManyRelations;
+      });
+    }
+  });
+
+  return manyToManyRelations;
 }
 
 // Obtiene campos foráneos para una clase
-function getForeignKeyFields(cls: NodeType, nodes: NodeType[], edges: EdgeType[]): Array<{fieldName: string, className: string}> {
-    const foreignKeys: Array<{fieldName: string, className: string}> = [];
-    
-    // Obtener nombres de atributos existentes para evitar duplicados
-    const existingAttributeNames = new Set((cls.attributes || []).map(attr => attr.name));
-    
-    // Para clases asociativas, agregar foráneas a las dos clases relacionadas
-    if (cls.asociativa && cls.relaciona) {
-        console.log(`🔧 Procesando entidad asociativa (frontend): ${cls.label}`);
-        console.log(`   Relaciona: [${cls.relaciona.join(', ')}]`);
-        console.log(`   Atributos existentes: [${Array.from(existingAttributeNames).join(', ')}]`);
-        
-        cls.relaciona.forEach(relId => {
-            // Buscar primero por ID, luego por nombre si no se encuentra
-            let relClass = nodes.find(n => n.id === relId);
-            
-            // Si no se encuentra por ID, buscar por nombre (para entidades importadas)
-            if (!relClass) {
-                relClass = nodes.find(n => n.label === relId);
-            }
-            
-            if (relClass) {
-                const fieldName = relClass.label.charAt(0).toLowerCase() + relClass.label.slice(1) + "Id";
-                
-                // Solo agregar si no existe ya como atributo (para entidades importadas)
-                if (!existingAttributeNames.has(fieldName)) {
-                    console.log(`   ✅ Agregando FK (frontend): ${fieldName} → ${relClass.label}`);
-                    foreignKeys.push({fieldName, className: relClass.label});
-                } else {
-                    console.log(`   ⏭️ Saltando FK ya existente (frontend): ${fieldName} → ${relClass.label}`);
-                }
-            } else {
-                console.warn(`❌ No se encontró clase relacionada (frontend) para ID/nombre: ${relId}`);
-            }
-        });
+function getForeignKeyFields(
+  cls: NodeType,
+  nodes: NodeType[],
+  edges: EdgeType[]
+): Array<{ fieldName: string; className: string }> {
+  const foreignKeys: Array<{ fieldName: string; className: string }> = [];
+
+  // Obtener nombres de atributos existentes para evitar duplicados
+  const existingAttributeNames = new Set((cls.attributes || []).map(attr => attr.name));
+
+  // Para clases asociativas, agregar foráneas a las dos clases relacionadas
+  if (cls.asociativa && cls.relaciona) {
+    console.log(`🔧 Procesando entidad asociativa (frontend): ${cls.label}`);
+    console.log(`   Relaciona: [${cls.relaciona.join(', ')}]`);
+    console.log(`   Atributos existentes: [${Array.from(existingAttributeNames).join(', ')}]`);
+
+    cls.relaciona.forEach(relId => {
+      // Buscar primero por ID, luego por nombre si no se encuentra
+      let relClass = nodes.find(n => n.id === relId);
+
+      // Si no se encuentra por ID, buscar por nombre (para entidades importadas)
+      if (!relClass) {
+        relClass = nodes.find(n => n.label === relId);
+      }
+
+      if (relClass) {
+        const fieldName = relClass.label.charAt(0).toLowerCase() + relClass.label.slice(1) + 'Id';
+
+        // Solo agregar si no existe ya como atributo (para entidades importadas)
+        if (!existingAttributeNames.has(fieldName)) {
+          console.log(`   ✅ Agregando FK (frontend): ${fieldName} → ${relClass.label}`);
+          foreignKeys.push({ fieldName, className: relClass.label });
+        } else {
+          console.log(
+            `   ⏭️ Saltando FK ya existente (frontend): ${fieldName} → ${relClass.label}`
+          );
+        }
+      } else {
+        console.warn(`❌ No se encontró clase relacionada (frontend) para ID/nombre: ${relId}`);
+      }
+    });
+  }
+
+  // Herencia: el campo foráneo va en la clase hija
+  edges
+    .filter(r => r.tipo === 'herencia' && r.source === cls.id)
+    .forEach(rel => {
+      const parentClass = nodes.find(c => c.id === rel.target && !c.asociativa);
+      if (parentClass) {
+        const fieldName =
+          parentClass.label.charAt(0).toLowerCase() + parentClass.label.slice(1) + 'Id';
+        if (!existingAttributeNames.has(fieldName)) {
+          foreignKeys.push({ fieldName, className: parentClass.label });
+        }
+      }
+    });
+
+  // Otras relaciones: agregar foráneas por cada relación donde esta clase es destino
+  const incomingRelations = edges.filter(
+    r => r.target === cls.id && ['asociacion', 'agregacion', 'composicion'].includes(r.tipo)
+  );
+
+  const added = new Set<string>();
+  incomingRelations.forEach(rel => {
+    const originClass = nodes.find(c => c.id === rel.source && !c.asociativa);
+    if (originClass) {
+      const fieldName =
+        originClass.label.charAt(0).toLowerCase() + originClass.label.slice(1) + 'Id';
+      if (!added.has(fieldName) && !existingAttributeNames.has(fieldName)) {
+        foreignKeys.push({ fieldName, className: originClass.label });
+        added.add(fieldName);
+      }
     }
-    
-    // Herencia: el campo foráneo va en la clase hija
-    edges.filter(r => r.tipo === 'herencia' && r.source === cls.id).forEach(rel => {
-        const parentClass = nodes.find(c => c.id === rel.target && !c.asociativa);
-        if (parentClass) {
-            const fieldName = parentClass.label.charAt(0).toLowerCase() + parentClass.label.slice(1) + "Id";
-            if (!existingAttributeNames.has(fieldName)) {
-                foreignKeys.push({fieldName, className: parentClass.label});
-            }
-        }
-    });
-    
-    // Otras relaciones: agregar foráneas por cada relación donde esta clase es destino
-    const incomingRelations = edges.filter(
-        r => r.target === cls.id && ['asociacion', 'agregacion', 'composicion'].includes(r.tipo)
-    );
-    
-    const added = new Set<string>();
-    incomingRelations.forEach(rel => {
-        const originClass = nodes.find(c => c.id === rel.source && !c.asociativa);
-        if (originClass) {
-            const fieldName = originClass.label.charAt(0).toLowerCase() + originClass.label.slice(1) + "Id";
-            if (!added.has(fieldName) && !existingAttributeNames.has(fieldName)) {
-                foreignKeys.push({fieldName, className: originClass.label});
-                added.add(fieldName);
-            }
-        }
-    });
-    
-    return foreignKeys;
+  });
+
+  return foreignKeys;
 }
 
 // Genera pubspec.yaml
 function generatePubspecYaml(): string {
-    return `name: flutter_mvp
+  return `name: flutter_mvp
 description: A Flutter CRUD project generated automatically
 
 publish_to: 'none'
@@ -177,17 +202,21 @@ flutter:
 
 // Genera main.dart
 function generateMainDart(classes: NodeType[]): string {
-    const routes = classes.map(cls => {
-        const className = cls.label.toLowerCase();
-        return `      '/${className}': (context) => ${capitalizeFirst(cls.label)}ListScreen(),`;
-    }).join('\n');
+  const routes = classes
+    .map(cls => {
+      const className = cls.label.toLowerCase();
+      return `      '/${className}': (context) => ${capitalizeFirst(cls.label)}ListScreen(),`;
+    })
+    .join('\n');
 
-    const imports = classes.map(cls => {
-        const className = cls.label.toLowerCase();
-        return `import 'screens/${className}/${className}_list_screen.dart';`;
-    }).join('\n');
+  const imports = classes
+    .map(cls => {
+      const className = cls.label.toLowerCase();
+      return `import 'screens/${className}/${className}_list_screen.dart';`;
+    })
+    .join('\n');
 
-    return `import 'package:flutter/material.dart';
+  return `import 'package:flutter/material.dart';
 ${imports}
 import 'widgets/app_drawer.dart';
 
@@ -251,83 +280,95 @@ class HomeScreen extends StatelessWidget {
 
 // Genera modelo para una clase específica
 function generateModelForClass(cls: NodeType, nodes: NodeType[], edges: EdgeType[]): string {
-    const className = capitalizeFirst(cls.label);
-    
-    // Obtener todas las claves foráneas que deberían estar
-    const foreignKeys = getForeignKeyFields(cls, nodes, edges);
-    
-    // Atributos propios de la clase (excluyendo 'id')
-    const ownAttributes = (cls.attributes || []).filter(attr => attr.name !== 'id');
-    
-    // Crear un conjunto unificado de todos los campos únicos
-    const allFieldsSet = new Set<string>();
-    const fieldInfoMap = new Map<string, {isAttribute: boolean, attr?: any, fk?: any}>();
-    
-    // Agregar ID primero
-    allFieldsSet.add('id');
-    fieldInfoMap.set('id', {isAttribute: false});
-    
-    // Agregar atributos propios
-    ownAttributes.forEach(attr => {
-        allFieldsSet.add(attr.name);
-        fieldInfoMap.set(attr.name, {isAttribute: true, attr});
-    });
-    
-    // Agregar FK solo si no existen ya como atributos
-    foreignKeys.forEach(fk => {
-        if (!allFieldsSet.has(fk.fieldName)) {
-            allFieldsSet.add(fk.fieldName);
-            fieldInfoMap.set(fk.fieldName, {isAttribute: false, fk});
-        }
-    });
-    
-    const allFields = Array.from(allFieldsSet);
-    
-    console.log(`🔧 Generando modelo ${className}:`);
-    console.log(`   Atributos de entidad: [${ownAttributes.map(a => a.name).join(', ')}]`);
-    console.log(`   FK detectadas: [${foreignKeys.map(fk => fk.fieldName).join(', ')}]`);
-    console.log(`   Campos finales únicos: [${allFields.join(', ')}]`);
-    
-    const constructorParams = allFields.map(field => {
-        if (field === 'id') return 'required this.id';
-        const fieldInfo = fieldInfoMap.get(field);
-        if (fieldInfo?.isAttribute) {
-            return `required this.${field}`;
-        }
-        return `this.${field}`;
-    }).join(',\n    ');
-    
-    const fieldDeclarations = allFields.map(field => {
-        if (field === 'id') return '  final int id;';
-        const fieldInfo = fieldInfoMap.get(field);
-        if (fieldInfo?.isAttribute && fieldInfo.attr) {
-            return `  final ${mapDartType(fieldInfo.attr.datatype)} ${field};`;
-        }
-        return `  final int? ${field};`;
-    }).join('\n');
-    
-    const fromJsonFields = allFields.map(field => {
-        if (field === 'id') return "      id: json['id'] as int";
-        const fieldInfo = fieldInfoMap.get(field);
-        if (fieldInfo?.isAttribute && fieldInfo.attr) {
-            const dartType = mapDartType(fieldInfo.attr.datatype);
-            if (dartType === 'DateTime') {
-                return `      ${field}: DateTime.parse(json['${field}'] as String)`;
-            }
-            return `      ${field}: json['${field}'] as ${dartType}`;
-        }
-        return `      ${field}: json['${field}'] as int?`;
-    }).join(',\n');
-    
-    const toJsonFields = allFields.map(field => {
-        const fieldInfo = fieldInfoMap.get(field);
-        if (fieldInfo?.isAttribute && fieldInfo.attr && mapDartType(fieldInfo.attr.datatype) === 'DateTime') {
-            return `      '${field}': ${field}.toIso8601String()`;
-        }
-        return `      '${field}': ${field}`;
-    }).join(',\n');
+  const className = capitalizeFirst(cls.label);
 
-    return `class ${className} {
+  // Obtener todas las claves foráneas que deberían estar
+  const foreignKeys = getForeignKeyFields(cls, nodes, edges);
+
+  // Atributos propios de la clase (excluyendo 'id')
+  const ownAttributes = (cls.attributes || []).filter(attr => attr.name !== 'id');
+
+  // Crear un conjunto unificado de todos los campos únicos
+  const allFieldsSet = new Set<string>();
+  const fieldInfoMap = new Map<string, { isAttribute: boolean; attr?: any; fk?: any }>(); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+  // Agregar ID primero
+  allFieldsSet.add('id');
+  fieldInfoMap.set('id', { isAttribute: false });
+
+  // Agregar atributos propios
+  ownAttributes.forEach(attr => {
+    allFieldsSet.add(attr.name);
+    fieldInfoMap.set(attr.name, { isAttribute: true, attr });
+  });
+
+  // Agregar FK solo si no existen ya como atributos
+  foreignKeys.forEach(fk => {
+    if (!allFieldsSet.has(fk.fieldName)) {
+      allFieldsSet.add(fk.fieldName);
+      fieldInfoMap.set(fk.fieldName, { isAttribute: false, fk });
+    }
+  });
+
+  const allFields = Array.from(allFieldsSet);
+
+  console.log(`🔧 Generando modelo ${className}:`);
+  console.log(`   Atributos de entidad: [${ownAttributes.map(a => a.name).join(', ')}]`);
+  console.log(`   FK detectadas: [${foreignKeys.map(fk => fk.fieldName).join(', ')}]`);
+  console.log(`   Campos finales únicos: [${allFields.join(', ')}]`);
+
+  const constructorParams = allFields
+    .map(field => {
+      if (field === 'id') return 'required this.id';
+      const fieldInfo = fieldInfoMap.get(field);
+      if (fieldInfo?.isAttribute) {
+        return `required this.${field}`;
+      }
+      return `this.${field}`;
+    })
+    .join(',\n    ');
+
+  const fieldDeclarations = allFields
+    .map(field => {
+      if (field === 'id') return '  final int id;';
+      const fieldInfo = fieldInfoMap.get(field);
+      if (fieldInfo?.isAttribute && fieldInfo.attr) {
+        return `  final ${mapDartType(fieldInfo.attr.datatype)} ${field};`;
+      }
+      return `  final int? ${field};`;
+    })
+    .join('\n');
+
+  const fromJsonFields = allFields
+    .map(field => {
+      if (field === 'id') return "      id: json['id'] as int";
+      const fieldInfo = fieldInfoMap.get(field);
+      if (fieldInfo?.isAttribute && fieldInfo.attr) {
+        const dartType = mapDartType(fieldInfo.attr.datatype);
+        if (dartType === 'DateTime') {
+          return `      ${field}: DateTime.parse(json['${field}'] as String)`;
+        }
+        return `      ${field}: json['${field}'] as ${dartType}`;
+      }
+      return `      ${field}: json['${field}'] as int?`;
+    })
+    .join(',\n');
+
+  const toJsonFields = allFields
+    .map(field => {
+      const fieldInfo = fieldInfoMap.get(field);
+      if (
+        fieldInfo?.isAttribute &&
+        fieldInfo.attr &&
+        mapDartType(fieldInfo.attr.datatype) === 'DateTime'
+      ) {
+        return `      '${field}': ${field}.toIso8601String()`;
+      }
+      return `      '${field}': ${field}`;
+    })
+    .join(',\n');
+
+  return `class ${className} {
 ${fieldDeclarations}
 
   ${className}({
@@ -351,10 +392,10 @@ ${toJsonFields},
 
 // Genera servicio para una clase específica
 function generateServiceForClass(cls: NodeType): string {
-    const className = capitalizeFirst(cls.label);
-    const endpoint = cls.label.toLowerCase() + 's';
-    
-    return `import 'dart:convert';
+  const className = capitalizeFirst(cls.label);
+  const endpoint = cls.label.toLowerCase() + 's';
+
+  return `import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/${cls.label.toLowerCase()}_model.dart';
 import '../config/api_config.dart';
@@ -470,46 +511,56 @@ class ${className}Service {
 
 // Genera pantalla de lista para una clase
 function generateListScreen(cls: NodeType, nodes: NodeType[], edges: EdgeType[]): string {
-    const className = capitalizeFirst(cls.label);
-    const endpoint = cls.label.toLowerCase();
-    const ownAttributes = (cls.attributes || []).filter(attr => attr.name !== 'id');
-    const foreignKeys = getForeignKeyFields(cls, nodes, edges);
-    const manyToManyRelations = getManyToManyRelations(cls, nodes, edges).filter(rel => rel.isMainEntity);
-    
-    // Generar filas de detalles para atributos propios
-    const ownAttributeRows = ownAttributes.map(attr => {
-        const label = capitalizeFirst(attr.name);
-        const dartType = mapDartType(attr.datatype);
-        
-        if (dartType === 'DateTime') {
-            return `        _buildDetailRow('${label}', item.${attr.name}.toString().substring(0, 16)),`;
-        } else {
-            return `        _buildDetailRow('${label}', item.${attr.name}.toString()),`;
-        }
-    }).join('\n');
-    
-    // Generar filas de detalles para claves foráneas
-    const foreignKeyRows = foreignKeys.map(fk => {
-        const label = capitalizeFirst(fk.fieldName.replace('Id', ''));
-        const displayAttr = getDisplayAttribute(fk.className, nodes);
-        return `        _buildDetailRow('${label}', item.${fk.fieldName} != null ? '\${item.${fk.fieldName}} - \${_get${fk.className}Display(item.${fk.fieldName}!)}' : 'N/A'),`;
-    }).join('\n');
-    
-    // Combinar todas las filas
-    const allDetailRows = [ownAttributeRows, foreignKeyRows].filter(rows => rows.length > 0).join('\n');
-    const detailRowsCode = allDetailRows || '        // No hay atributos adicionales';
-    
-    // Generar botones adicionales para relaciones muchos-a-muchos
-    const manyToManyButtons = manyToManyRelations.map(rel => {
-        const assocClassName = capitalizeFirst(rel.associativeEntity.label);
-        return `                                IconButton(
+  const className = capitalizeFirst(cls.label);
+  const endpoint = cls.label.toLowerCase();
+  const ownAttributes = (cls.attributes || []).filter(attr => attr.name !== 'id');
+  const foreignKeys = getForeignKeyFields(cls, nodes, edges);
+  const manyToManyRelations = getManyToManyRelations(cls, nodes, edges).filter(
+    rel => rel.isMainEntity
+  );
+
+  // Generar filas de detalles para atributos propios
+  const ownAttributeRows = ownAttributes
+    .map(attr => {
+      const label = capitalizeFirst(attr.name);
+      const dartType = mapDartType(attr.datatype);
+
+      if (dartType === 'DateTime') {
+        return `        _buildDetailRow('${label}', item.${attr.name}.toString().substring(0, 16)),`;
+      } else {
+        return `        _buildDetailRow('${label}', item.${attr.name}.toString()),`;
+      }
+    })
+    .join('\n');
+
+  // Generar filas de detalles para claves foráneas
+  const foreignKeyRows = foreignKeys
+    .map(fk => {
+      const label = capitalizeFirst(fk.fieldName.replace('Id', ''));
+      // const displayAttr = getDisplayAttribute(fk.className, nodes);
+      return `        _buildDetailRow('${label}', item.${fk.fieldName} != null ? '\${item.${fk.fieldName}} - \${_get${fk.className}Display(item.${fk.fieldName}!)}' : 'N/A'),`;
+    })
+    .join('\n');
+
+  // Combinar todas las filas
+  const allDetailRows = [ownAttributeRows, foreignKeyRows]
+    .filter(rows => rows.length > 0)
+    .join('\n');
+  const detailRowsCode = allDetailRows || '        // No hay atributos adicionales';
+
+  // Generar botones adicionales para relaciones muchos-a-muchos
+  const manyToManyButtons = manyToManyRelations
+    .map(rel => {
+      const assocClassName = capitalizeFirst(rel.associativeEntity.label);
+      return `                                IconButton(
                                   icon: const Icon(Icons.list_alt, color: Colors.green),
                                   onPressed: () => _navigateToDetails(item.id, '${rel.associativeEntity.label}'),
                                   tooltip: 'Ver ${assocClassName}s',
                                 ),`;
-    }).join('\n');
-    
-    const actionButtons = `                                IconButton(
+    })
+    .join('\n');
+
+  const actionButtons = `                                IconButton(
                                   icon: const Icon(Icons.edit, color: Colors.blue),
                                   onPressed: () => _navigateToForm(item),
                                   tooltip: 'Editar',
@@ -519,13 +570,13 @@ function generateListScreen(cls: NodeType, nodes: NodeType[], edges: EdgeType[])
                                   onPressed: () => _showDeleteDialog(item.id),
                                   tooltip: 'Eliminar',
                                 ),${manyToManyButtons ? '\n' + manyToManyButtons : ''}`;
-    
-    // Generar imports adicionales para entidades asociativas
-    const associativeImports = manyToManyRelations.map(rel => 
-        `import '${rel.associativeEntity.label.toLowerCase()}_details_screen.dart';`
-    ).join('\n');
-    
-    return `import 'package:flutter/material.dart';
+
+  // Generar imports adicionales para entidades asociativas
+  const associativeImports = manyToManyRelations
+    .map(rel => `import '${rel.associativeEntity.label.toLowerCase()}_details_screen.dart';`)
+    .join('\n');
+
+  return `import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../services/${endpoint}_service.dart';
@@ -554,7 +605,8 @@ ${foreignKeys.map(fk => `  Map<int, String> _${fk.className.toLowerCase()}Map = 
 ${foreignKeys.map(fk => `    _load${fk.className}Data();`).join('\n')}
   }
 
-${foreignKeys.map(fk => {
+${foreignKeys
+  .map(fk => {
     const relatedEndpoint = fk.className.toLowerCase() + 's';
     const displayAttr = getDisplayAttribute(fk.className, nodes);
     return `  Future<void> _load${fk.className}Data() async {
@@ -599,7 +651,8 @@ ${foreignKeys.map(fk => {
     }
     return display;
   }`;
-}).join('\n\n')}
+  })
+  .join('\n\n')}
 
   Future<void> _loadItems() async {
     setState(() => _isLoading = true);
@@ -636,7 +689,8 @@ ${foreignKeys.map(fk => {
     }
   }
 
-${manyToManyRelations.map(rel => {
+${manyToManyRelations
+  .map(rel => {
     const assocClassName = capitalizeFirst(rel.associativeEntity.label);
     return `  void _navigateToDetails(int ${cls.label.toLowerCase()}Id, String detailType) async {
     final result = await Navigator.push<bool>(
@@ -649,7 +703,8 @@ ${manyToManyRelations.map(rel => {
       _loadItems();
     }
   }`;
-}).join('\n\n')}
+  })
+  .join('\n\n')}
 
   Widget _buildItemDetails(${className} item) {
     return Column(
@@ -787,36 +842,41 @@ ${actionButtons}
 }
 
 // Genera pantalla de detalles para entidades asociativas (muchos-a-muchos)
-function generateDetailsScreen(associativeEntity: NodeType, mainEntity: NodeType, relatedEntity: NodeType, nodes: NodeType[], edges: EdgeType[]): string {
-    const assocClassName = capitalizeFirst(associativeEntity.label);
-    const mainClassName = capitalizeFirst(mainEntity.label);
-    const relatedClassName = capitalizeFirst(relatedEntity.label);
-    const mainFieldName = mainEntity.label.toLowerCase() + 'Id';
-    const relatedFieldName = relatedEntity.label.toLowerCase() + 'Id';
-    const assocEndpoint = associativeEntity.label.toLowerCase() + 's';
-    const relatedEndpoint = relatedEntity.label.toLowerCase() + 's';
-    
-    const ownAttributes = (associativeEntity.attributes || []).filter(attr => 
-        attr.name !== 'id' && 
-        attr.name !== mainFieldName && 
-        attr.name !== relatedFieldName
-    );
-    
-    const relatedDisplayAttr = getDisplayAttribute(relatedEntity.label, nodes);
-    
-    // Generar filas de detalles para atributos propios de la entidad asociativa
-    const detailRows = ownAttributes.map(attr => {
-        const label = capitalizeFirst(attr.name);
-        const dartType = mapDartType(attr.datatype);
-        
-        if (dartType === 'DateTime') {
-            return `                            _buildDetailRow('${label}', detail.${attr.name}.toString().substring(0, 16)),`;
-        } else {
-            return `                            _buildDetailRow('${label}', detail.${attr.name}.toString()),`;
-        }
-    }).join('\n');
-    
-    return `import 'package:flutter/material.dart';
+function generateDetailsScreen(
+  associativeEntity: NodeType,
+  mainEntity: NodeType,
+  relatedEntity: NodeType,
+  nodes: NodeType[]
+): string {
+  const assocClassName = capitalizeFirst(associativeEntity.label);
+  const mainClassName = capitalizeFirst(mainEntity.label);
+  const relatedClassName = capitalizeFirst(relatedEntity.label);
+  const mainFieldName = mainEntity.label.toLowerCase() + 'Id';
+  const relatedFieldName = relatedEntity.label.toLowerCase() + 'Id';
+  const assocEndpoint = associativeEntity.label.toLowerCase() + 's';
+  const relatedEndpoint = relatedEntity.label.toLowerCase() + 's';
+
+  const ownAttributes = (associativeEntity.attributes || []).filter(
+    attr => attr.name !== 'id' && attr.name !== mainFieldName && attr.name !== relatedFieldName
+  );
+
+  const relatedDisplayAttr = getDisplayAttribute(relatedEntity.label, nodes);
+
+  // Generar filas de detalles para atributos propios de la entidad asociativa
+  const detailRows = ownAttributes
+    .map(attr => {
+      const label = capitalizeFirst(attr.name);
+      const dartType = mapDartType(attr.datatype);
+
+      if (dartType === 'DateTime') {
+        return `                            _buildDetailRow('${label}', detail.${attr.name}.toString().substring(0, 16)),`;
+      } else {
+        return `                            _buildDetailRow('${label}', detail.${attr.name}.toString()),`;
+      }
+    })
+    .join('\n');
+
+  return `import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../models/${associativeEntity.label.toLowerCase()}_model.dart';
@@ -980,8 +1040,12 @@ class _${assocClassName}DetailsScreenState extends State<${assocClassName}Detail
                                 fontSize: 16,
                               ),
                             ),
-${detailRows.length > 0 ? `                            const SizedBox(height: 8),
-${detailRows}` : ''}
+${
+  detailRows.length > 0
+    ? `                            const SizedBox(height: 8),
+${detailRows}`
+    : ''
+}
                           ],
                         ),
                       ),
@@ -997,42 +1061,47 @@ ${detailRows}` : ''}
 }
 
 // Genera diálogo de formulario para entidades asociativas
-function generateFormDialog(associativeEntity: NodeType, mainEntity: NodeType, relatedEntity: NodeType, nodes: NodeType[], edges: EdgeType[]): string {
-    const assocClassName = capitalizeFirst(associativeEntity.label);
-    const mainClassName = capitalizeFirst(mainEntity.label);
-    const relatedClassName = capitalizeFirst(relatedEntity.label);
-    const mainFieldName = mainEntity.label.toLowerCase() + 'Id';
-    const relatedFieldName = relatedEntity.label.toLowerCase() + 'Id';
-    
-    const ownAttributes = (associativeEntity.attributes || []).filter(attr => 
-        attr.name !== 'id' && 
-        attr.name !== mainFieldName && 
-        attr.name !== relatedFieldName
-    );
-    
-    // Generar variables de estado para todos los tipos de atributos
-    const allStateVars = ownAttributes.map(attr => {
-        const dartType = mapDartType(attr.datatype);
-        const fieldName = attr.name;
-        
-        if (dartType === 'DateTime') {
-            return `  DateTime? _selected${capitalizeFirst(fieldName)}Date;`;
-        } else if (dartType === 'bool') {
-            return `  bool _${fieldName}Value = false;`;
-        } else {
-            // Para String, int, double usamos controladores
-            return `  final _${fieldName}Controller = TextEditingController();`;
-        }
-    }).join('\n');
-    
-    // Generar campos del formulario para todos los tipos
-    const formFields = ownAttributes.map(attr => {
-        const dartType = mapDartType(attr.datatype);
-        const fieldName = attr.name;
-        const capitalizedName = capitalizeFirst(fieldName);
-        
-        if (dartType === 'DateTime') {
-            return `                InkWell(
+function generateFormDialog(
+  associativeEntity: NodeType,
+  mainEntity: NodeType,
+  relatedEntity: NodeType
+): string {
+  const assocClassName = capitalizeFirst(associativeEntity.label);
+  // const mainClassName = capitalizeFirst(mainEntity.label);
+  const relatedClassName = capitalizeFirst(relatedEntity.label);
+  const mainFieldName = mainEntity.label.toLowerCase() + 'Id';
+  const relatedFieldName = relatedEntity.label.toLowerCase() + 'Id';
+
+  const ownAttributes = (associativeEntity.attributes || []).filter(
+    attr => attr.name !== 'id' && attr.name !== mainFieldName && attr.name !== relatedFieldName
+  );
+
+  // Generar variables de estado para todos los tipos de atributos
+  const allStateVars = ownAttributes
+    .map(attr => {
+      const dartType = mapDartType(attr.datatype);
+      const fieldName = attr.name;
+
+      if (dartType === 'DateTime') {
+        return `  DateTime? _selected${capitalizeFirst(fieldName)}Date;`;
+      } else if (dartType === 'bool') {
+        return `  bool _${fieldName}Value = false;`;
+      } else {
+        // Para String, int, double usamos controladores
+        return `  final _${fieldName}Controller = TextEditingController();`;
+      }
+    })
+    .join('\n');
+
+  // Generar campos del formulario para todos los tipos
+  const formFields = ownAttributes
+    .map(attr => {
+      const dartType = mapDartType(attr.datatype);
+      const fieldName = attr.name;
+      const capitalizedName = capitalizeFirst(fieldName);
+
+      if (dartType === 'DateTime') {
+        return `                InkWell(
                   onTap: _isSaving ? null : () async {
                     final date = await showDatePicker(
                       context: context,
@@ -1063,8 +1132,8 @@ function generateFormDialog(associativeEntity: NodeType, mainEntity: NodeType, r
                   ),
                 ),
                 const SizedBox(height: 16),`;
-        } else if (dartType === 'bool') {
-            return `                Row(
+      } else if (dartType === 'bool') {
+        return `                Row(
                   children: [
                     Checkbox(
                       value: _${fieldName}Value,
@@ -1079,13 +1148,16 @@ function generateFormDialog(associativeEntity: NodeType, mainEntity: NodeType, r
                   ],
                 ),
                 const SizedBox(height: 16),`;
-        } else {
-            // Para String, int, double
-            const keyboardType = dartType === 'int' ? 'TextInputType.number' : 
-                                dartType === 'double' ? 'TextInputType.numberWithOptions(decimal: true)' : 
-                                'TextInputType.text';
-            
-            return `                TextFormField(
+      } else {
+        // Para String, int, double
+        const keyboardType =
+          dartType === 'int'
+            ? 'TextInputType.number'
+            : dartType === 'double'
+              ? 'TextInputType.numberWithOptions(decimal: true)'
+              : 'TextInputType.text';
+
+        return `                TextFormField(
                   controller: _${fieldName}Controller,
                   enabled: !_isSaving,
                   keyboardType: ${keyboardType},
@@ -1097,22 +1169,31 @@ function generateFormDialog(associativeEntity: NodeType, mainEntity: NodeType, r
                     if (value == null || value.trim().isEmpty) {
                       return 'Este campo es requerido';
                     }
-                    ${dartType === 'int' ? `
+                    ${
+                      dartType === 'int'
+                        ? `
                     if (int.tryParse(value) == null) {
                       return 'Debe ser un número entero';
-                    }` : ''}
-                    ${dartType === 'double' ? `
+                    }`
+                        : ''
+                    }
+                    ${
+                      dartType === 'double'
+                        ? `
                     if (double.tryParse(value) == null) {
                       return 'Debe ser un número válido';
-                    }` : ''}
+                    }`
+                        : ''
+                    }
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),`;
-        }
-    }).join('\n');
-    
-    return `import 'package:flutter/material.dart';
+      }
+    })
+    .join('\n');
+
+  return `import 'package:flutter/material.dart';
 import '../../models/${associativeEntity.label.toLowerCase()}_model.dart';
 
 class ${assocClassName}FormDialog extends StatefulWidget {
@@ -1139,9 +1220,10 @@ ${allStateVars}
 
   @override
   void dispose() {
-${ownAttributes.filter(attr => ['String', 'Integer', 'Float'].includes(attr.datatype)).map(attr => 
-    `    _${attr.name}Controller.dispose();`
-).join('\n')}
+${ownAttributes
+  .filter(attr => ['String', 'Integer', 'Float'].includes(attr.datatype))
+  .map(attr => `    _${attr.name}Controller.dispose();`)
+  .join('\n')}
     super.dispose();
   }
 
@@ -1180,24 +1262,26 @@ ${ownAttributes.filter(attr => ['String', 'Integer', 'Float'].includes(attr.data
         id: 0, // Always new
         ${mainFieldName}: widget.${mainEntity.label.toLowerCase()}Id,
         ${relatedFieldName}: _selected${relatedClassName}Id!,
-${ownAttributes.map(attr => {
-        const dartType = mapDartType(attr.datatype);
-        const fieldName = attr.name;
-        const controllerName = `_${fieldName}Controller`;
-        
-        if (dartType === 'DateTime') {
-            return `        ${fieldName}: _selected${capitalizeFirst(fieldName)}Date ?? DateTime.now(),`;
-        } else if (dartType === 'int') {
-            return `        ${fieldName}: int.tryParse(${controllerName}.text) ?? 0,`;
-        } else if (dartType === 'double') {
-            return `        ${fieldName}: double.tryParse(${controllerName}.text) ?? 0.0,`;
-        } else if (dartType === 'bool') {
-            return `        ${fieldName}: _${fieldName}Value,`;
-        } else {
-            // String y otros tipos
-            return `        ${fieldName}: ${controllerName}.text.trim(),`;
-        }
-    }).join('\n')}
+${ownAttributes
+  .map(attr => {
+    const dartType = mapDartType(attr.datatype);
+    const fieldName = attr.name;
+    const controllerName = `_${fieldName}Controller`;
+
+    if (dartType === 'DateTime') {
+      return `        ${fieldName}: _selected${capitalizeFirst(fieldName)}Date ?? DateTime.now(),`;
+    } else if (dartType === 'int') {
+      return `        ${fieldName}: int.tryParse(${controllerName}.text) ?? 0,`;
+    } else if (dartType === 'double') {
+      return `        ${fieldName}: double.tryParse(${controllerName}.text) ?? 0.0,`;
+    } else if (dartType === 'bool') {
+      return `        ${fieldName}: _${fieldName}Value,`;
+    } else {
+      // String y otros tipos
+      return `        ${fieldName}: ${controllerName}.text.trim(),`;
+    }
+  })
+  .join('\n')}
       );
 
       if (mounted) {
@@ -1316,38 +1400,43 @@ ${formFields}
 
 // Genera pantalla de formulario para una clase
 function generateFormScreen(cls: NodeType, nodes: NodeType[], edges: EdgeType[]): string {
-    const className = capitalizeFirst(cls.label);
-    const endpoint = cls.label.toLowerCase();
-    const foreignKeys = getForeignKeyFields(cls, nodes, edges);
-    const ownAttributes = (cls.attributes || []).filter(attr => attr.name !== 'id');
-    const manyToManyRelations = getManyToManyRelations(cls, nodes, edges).filter(rel => rel.isMainEntity);
-    
-    // Generar controladores para cada campo
-    const controllers = ownAttributes.map(attr => 
-        `  final TextEditingController _${attr.name}Controller = TextEditingController();`
-    ).join('\n');
-    
-    // Generar imports adicionales para entidades asociativas
-    const associativeImports = manyToManyRelations.map(rel => 
-        `import '${rel.associativeEntity.label.toLowerCase()}_form_dialog.dart';`
-    ).join('\n');
-    
-    // Generar variables de estado para los detalles
-    const detailsStateVariables = manyToManyRelations.map(rel => {
-        const assocClassName = capitalizeFirst(rel.associativeEntity.label);
-        const relatedClassName = capitalizeFirst(rel.relatedEntity.label);
-        return `  List<${assocClassName}> _${rel.associativeEntity.label.toLowerCase()}Details = [];
+  const className = capitalizeFirst(cls.label);
+  const endpoint = cls.label.toLowerCase();
+  const foreignKeys = getForeignKeyFields(cls, nodes, edges);
+  const ownAttributes = (cls.attributes || []).filter(attr => attr.name !== 'id');
+  const manyToManyRelations = getManyToManyRelations(cls, nodes, edges).filter(
+    rel => rel.isMainEntity
+  );
+
+  // Generar controladores para cada campo
+  const controllers = ownAttributes
+    .map(attr => `  final TextEditingController _${attr.name}Controller = TextEditingController();`)
+    .join('\n');
+
+  // Generar imports adicionales para entidades asociativas
+  const associativeImports = manyToManyRelations
+    .map(rel => `import '${rel.associativeEntity.label.toLowerCase()}_form_dialog.dart';`)
+    .join('\n');
+
+  // Generar variables de estado para los detalles
+  const detailsStateVariables = manyToManyRelations
+    .map(rel => {
+      const assocClassName = capitalizeFirst(rel.associativeEntity.label);
+      const relatedClassName = capitalizeFirst(rel.relatedEntity.label);
+      return `  List<${assocClassName}> _${rel.associativeEntity.label.toLowerCase()}Details = [];
   List<${assocClassName}> _original${assocClassName}Details = []; // Track originals
   Map<int, String> _${rel.relatedEntity.label.toLowerCase()}Options = {};
   bool _loading${relatedClassName}Options = true;`;
-    }).join('\n');
-    
-    // Generar métodos para cargar opciones relacionadas
-    const loadRelatedOptionsMethod = manyToManyRelations.map(rel => {
-        const relatedClassName = capitalizeFirst(rel.relatedEntity.label);
-        const relatedEndpoint = rel.relatedEntity.label.toLowerCase() + 's';
-        const displayAttr = getDisplayAttribute(rel.relatedEntity.label, nodes);
-        return `  Future<void> _load${relatedClassName}OptionsForDetails() async {
+    })
+    .join('\n');
+
+  // Generar métodos para cargar opciones relacionadas
+  const loadRelatedOptionsMethod = manyToManyRelations
+    .map(rel => {
+      const relatedClassName = capitalizeFirst(rel.relatedEntity.label);
+      const relatedEndpoint = rel.relatedEntity.label.toLowerCase() + 's';
+      const displayAttr = getDisplayAttribute(rel.relatedEntity.label, nodes);
+      return `  Future<void> _load${relatedClassName}OptionsForDetails() async {
     setState(() {
       _loading${relatedClassName}Options = true;
     });
@@ -1380,13 +1469,15 @@ function generateFormScreen(cls: NodeType, nodes: NodeType[], edges: EdgeType[])
       });
     }
   }`;
-    }).join('\n\n');
-    
-    // Generar métodos para gestionar detalles
-    const detailsManagementMethods = manyToManyRelations.map(rel => {
-        const assocClassName = capitalizeFirst(rel.associativeEntity.label);
-        const relatedClassName = capitalizeFirst(rel.relatedEntity.label);
-        return `  void _showAdd${assocClassName}Dialog() async {
+    })
+    .join('\n\n');
+
+  // Generar métodos para gestionar detalles
+  const detailsManagementMethods = manyToManyRelations
+    .map(rel => {
+      const assocClassName = capitalizeFirst(rel.associativeEntity.label);
+      const relatedClassName = capitalizeFirst(rel.relatedEntity.label);
+      return `  void _showAdd${assocClassName}Dialog() async {
     final result = await showDialog<${assocClassName}>(
       context: context,
       builder: (context) => ${assocClassName}FormDialog(
@@ -1412,28 +1503,33 @@ function generateFormScreen(cls: NodeType, nodes: NodeType[], edges: EdgeType[])
     if (id == null) return 'N/A';
     return _${rel.relatedEntity.label.toLowerCase()}Options[id] ?? 'No encontrado';
   }`;
-    }).join('\n\n');
-    
-    // Generar secciones de detalles en el formulario
-    const detailsSections = manyToManyRelations.map(rel => {
-        const assocClassName = capitalizeFirst(rel.associativeEntity.label);
-        const relatedClassName = capitalizeFirst(rel.relatedEntity.label);
-        const ownAttrs = (rel.associativeEntity.attributes || []).filter(attr => 
-            attr.name !== 'id' && 
-            attr.name !== cls.label.toLowerCase() + 'Id' && 
-            attr.name !== rel.relatedEntity.label.toLowerCase() + 'Id'
-        );
-        
-        const detailRows = ownAttrs.map(attr => {
-            const dartType = mapDartType(attr.datatype);
-            if (dartType === 'DateTime') {
-                return `                                    Text('${capitalizeFirst(attr.name)}: \${detail.${attr.name}.toString().substring(0, 16)}', style: const TextStyle(fontSize: 12)),`;
-            } else {
-                return `                                    Text('${capitalizeFirst(attr.name)}: \${detail.${attr.name}}', style: const TextStyle(fontSize: 12)),`;
-            }
-        }).join('\n');
-        
-        return `            // Sección de ${assocClassName}s
+    })
+    .join('\n\n');
+
+  // Generar secciones de detalles en el formulario
+  const detailsSections = manyToManyRelations
+    .map(rel => {
+      const assocClassName = capitalizeFirst(rel.associativeEntity.label);
+      const relatedClassName = capitalizeFirst(rel.relatedEntity.label);
+      const ownAttrs = (rel.associativeEntity.attributes || []).filter(
+        attr =>
+          attr.name !== 'id' &&
+          attr.name !== cls.label.toLowerCase() + 'Id' &&
+          attr.name !== rel.relatedEntity.label.toLowerCase() + 'Id'
+      );
+
+      const detailRows = ownAttrs
+        .map(attr => {
+          const dartType = mapDartType(attr.datatype);
+          if (dartType === 'DateTime') {
+            return `                                    Text('${capitalizeFirst(attr.name)}: \${detail.${attr.name}.toString().substring(0, 16)}', style: const TextStyle(fontSize: 12)),`;
+          } else {
+            return `                                    Text('${capitalizeFirst(attr.name)}: \${detail.${attr.name}}', style: const TextStyle(fontSize: 12)),`;
+          }
+        })
+        .join('\n');
+
+      return `            // Sección de ${assocClassName}s
             Card(
               margin: const EdgeInsets.symmetric(vertical: 8),
               child: Padding(
@@ -1487,14 +1583,18 @@ function generateFormScreen(cls: NodeType, nodes: NodeType[], edges: EdgeType[])
                                   title: Text(
                                     '${relatedClassName}: \${_get${relatedClassName}Display(detail.${rel.relatedEntity.label.toLowerCase()}Id)}',
                                     style: const TextStyle(fontWeight: FontWeight.w500),
-                                  ),${detailRows.length > 0 ? `
+                                  ),${
+                                    detailRows.length > 0
+                                      ? `
                                   subtitle: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       const SizedBox(height: 4),
 ${detailRows}
                                     ],
-                                  ),` : ''}
+                                  ),`
+                                      : ''
+                                  }
                                   trailing: IconButton(
                                     icon: const Icon(Icons.delete, color: Colors.red, size: 20),
                                     onPressed: () => _remove${assocClassName}Detail(index),
@@ -1508,14 +1608,15 @@ ${detailRows}
                 ),
               ),
             ),`;
-    }).join('\n');
-    
-    // Generar campos del formulario
-    const formFields = [
-        ...ownAttributes.map(attr => {
-            const dartType = mapDartType(attr.datatype);
-            if (dartType === 'DateTime') {
-                return `            InkWell(
+    })
+    .join('\n');
+
+  // Generar campos del formulario
+  const formFields = [
+    ...ownAttributes.map(attr => {
+      const dartType = mapDartType(attr.datatype);
+      if (dartType === 'DateTime') {
+        return `            InkWell(
               onTap: () async {
                 final date = await showDatePicker(
                   context: context,
@@ -1546,10 +1647,12 @@ ${detailRows}
               ),
             ),
             const SizedBox(height: 16),`;
-            } else {
-                const inputType = dartType === 'int' || dartType === 'double' 
-                    ? 'TextInputType.number' : 'TextInputType.text';
-                return `            TextFormField(
+      } else {
+        const inputType =
+          dartType === 'int' || dartType === 'double'
+            ? 'TextInputType.number'
+            : 'TextInputType.text';
+        return `            TextFormField(
               controller: _${attr.name}Controller,
               decoration: const InputDecoration(
                 labelText: '${capitalizeFirst(attr.name)}',
@@ -1564,11 +1667,11 @@ ${detailRows}
               },
             ),
             const SizedBox(height: 16),`;
-            }
-        }),
-        ...foreignKeys.map(fk => {
-            const label = capitalizeFirst(fk.fieldName.replace('Id', ''));
-            return `            _loading${fk.className}Options
+      }
+    }),
+    ...foreignKeys.map(fk => {
+      const label = capitalizeFirst(fk.fieldName.replace('Id', ''));
+      return `            _loading${fk.className}Options
                 ? const LinearProgressIndicator()
                 : DropdownButtonFormField<int>(
                     value: _selected${fk.className}Id,
@@ -1603,10 +1706,10 @@ ${detailRows}
                             : const Text('Selecciona una opción'),
                   ),
             const SizedBox(height: 16),`;
-        })
-    ].join('\n');
-    
-    return `import 'package:flutter/material.dart';
+    }),
+  ].join('\n');
+
+  return `import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../services/${endpoint}_service.dart';
@@ -1632,7 +1735,10 @@ ${controllers}
 ${foreignKeys.map(fk => `  int? _selected${fk.className}Id;`).join('\n')}
 ${foreignKeys.map(fk => `  Map<int, String> _${fk.className.toLowerCase()}Options = {};`).join('\n')}
 ${foreignKeys.map(fk => `  bool _loading${fk.className}Options = true;`).join('\n')}
-${ownAttributes.filter(attr => mapDartType(attr.datatype) === 'DateTime').map(attr => `  DateTime? _selected${capitalizeFirst(attr.name)}Date;`).join('\n')}
+${ownAttributes
+  .filter(attr => mapDartType(attr.datatype) === 'DateTime')
+  .map(attr => `  DateTime? _selected${capitalizeFirst(attr.name)}Date;`)
+  .join('\n')}
 ${detailsStateVariables}
 
   @override
@@ -1645,7 +1751,8 @@ ${foreignKeys.map(fk => `    _load${fk.className}Options();`).join('\n')}
 ${manyToManyRelations.map(rel => `    _load${capitalizeFirst(rel.relatedEntity.label)}OptionsForDetails();`).join('\n')}
   }
 
-${foreignKeys.map(fk => {
+${foreignKeys
+  .map(fk => {
     const relatedEndpoint = fk.className.toLowerCase() + 's';
     const displayAttr = getDisplayAttribute(fk.className, nodes);
     return `  Future<void> _load${fk.className}Options() async {
@@ -1687,18 +1794,21 @@ ${foreignKeys.map(fk => {
       });
     }
   }`;
-}).join('\n\n')}
+  })
+  .join('\n\n')}
 
   void _loadItemData() {
     final item = widget.item!;
-${ownAttributes.map(attr => {
-        const dartType = mapDartType(attr.datatype);
-        if (dartType === 'DateTime') {
-            return `    _selected${capitalizeFirst(attr.name)}Date = item.${attr.name};`;
-        } else {
-            return `    _${attr.name}Controller.text = item.${attr.name}.toString();`;
-        }
-    }).join('\n')}
+${ownAttributes
+  .map(attr => {
+    const dartType = mapDartType(attr.datatype);
+    if (dartType === 'DateTime') {
+      return `    _selected${capitalizeFirst(attr.name)}Date = item.${attr.name};`;
+    } else {
+      return `    _${attr.name}Controller.text = item.${attr.name}.toString();`;
+    }
+  })
+  .join('\n')}
 ${foreignKeys.map(fk => `    _selected${fk.className}Id = item.${fk.fieldName};`).join('\n')}
     
     // Cargar detalles existentes en modo edición
@@ -1707,7 +1817,8 @@ ${manyToManyRelations.map(rel => `    _loadExisting${capitalizeFirst(rel.associa
 
 ${loadRelatedOptionsMethod}
 
-${manyToManyRelations.map(rel => {
+${manyToManyRelations
+  .map(rel => {
     const assocClassName = capitalizeFirst(rel.associativeEntity.label);
     const assocEndpoint = rel.associativeEntity.label.toLowerCase() + 's';
     const mainFieldName = cls.label.toLowerCase() + 'Id';
@@ -1741,7 +1852,8 @@ ${manyToManyRelations.map(rel => {
       print('Error loading existing ${rel.associativeEntity.label.toLowerCase()} details: \$e');
     }
   }`;
-}).join('\n\n')}
+  })
+  .join('\n\n')}
 
 ${detailsManagementMethods}
 
@@ -1751,20 +1863,22 @@ ${detailsManagementMethods}
     try {
       final item = ${className}(
         id: widget.item?.id ?? 0,
-${ownAttributes.map(attr => {
-        const dartType = mapDartType(attr.datatype);
-        if (dartType === 'int') {
-            return `        ${attr.name}: int.parse(_${attr.name}Controller.text),`;
-        } else if (dartType === 'double') {
-            return `        ${attr.name}: double.parse(_${attr.name}Controller.text),`;
-        } else if (dartType === 'bool') {
-            return `        ${attr.name}: _${attr.name}Controller.text.toLowerCase() == 'true',`;
-        } else if (dartType === 'DateTime') {
-            return `        ${attr.name}: _selected${capitalizeFirst(attr.name)}Date ?? DateTime.now(),`;
-        } else {
-            return `        ${attr.name}: _${attr.name}Controller.text,`;
-        }
-    }).join('\n')}
+${ownAttributes
+  .map(attr => {
+    const dartType = mapDartType(attr.datatype);
+    if (dartType === 'int') {
+      return `        ${attr.name}: int.parse(_${attr.name}Controller.text),`;
+    } else if (dartType === 'double') {
+      return `        ${attr.name}: double.parse(_${attr.name}Controller.text),`;
+    } else if (dartType === 'bool') {
+      return `        ${attr.name}: _${attr.name}Controller.text.toLowerCase() == 'true',`;
+    } else if (dartType === 'DateTime') {
+      return `        ${attr.name}: _selected${capitalizeFirst(attr.name)}Date ?? DateTime.now(),`;
+    } else {
+      return `        ${attr.name}: _${attr.name}Controller.text,`;
+    }
+  })
+  .join('\n')}
 ${foreignKeys.map(fk => `        ${fk.fieldName}: _selected${fk.className}Id,`).join('\n')}
       );
 
@@ -1776,9 +1890,13 @@ ${foreignKeys.map(fk => `        ${fk.fieldName}: _selected${fk.className}Id,`).
       }
 
       if (result != null) {
-        ${manyToManyRelations.length > 0 ? `// Guardar detalles (entidades asociativas)
+        ${
+          manyToManyRelations.length > 0
+            ? `// Guardar detalles (entidades asociativas)
         await _saveDetails(result.id);
-        ` : ''}
+        `
+            : ''
+        }
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${className} \${widget.item == null ? 'creado' : 'actualizado'} exitosamente')),
@@ -1795,9 +1913,12 @@ ${foreignKeys.map(fk => `        ${fk.fieldName}: _selected${fk.className}Id,`).
     }
   }
 
-${manyToManyRelations.length > 0 ? `  Future<void> _saveDetails(int ${cls.label.toLowerCase()}Id) async {
+${
+  manyToManyRelations.length > 0
+    ? `  Future<void> _saveDetails(int ${cls.label.toLowerCase()}Id) async {
     try {
-${manyToManyRelations.map(rel => {
+${manyToManyRelations
+  .map(rel => {
     const assocClassName = capitalizeFirst(rel.associativeEntity.label);
     const assocEndpoint = rel.associativeEntity.label.toLowerCase() + 's';
     const mainFieldName = cls.label.toLowerCase() + 'Id';
@@ -1822,11 +1943,15 @@ ${manyToManyRelations.map(rel => {
             id: 0, // Siempre crear nuevo
             ${mainFieldName}: ${cls.label.toLowerCase()}Id,
             ${rel.relatedEntity.label.toLowerCase()}Id: detail.${rel.relatedEntity.label.toLowerCase()}Id,
-${(rel.associativeEntity.attributes || []).filter(attr => 
-    attr.name !== 'id' && 
-    attr.name !== mainFieldName && 
-    attr.name !== rel.relatedEntity.label.toLowerCase() + 'Id'
-).map(attr => `            ${attr.name}: detail.${attr.name},`).join('\n')}
+${(rel.associativeEntity.attributes || [])
+  .filter(
+    attr =>
+      attr.name !== 'id' &&
+      attr.name !== mainFieldName &&
+      attr.name !== rel.relatedEntity.label.toLowerCase() + 'Id'
+  )
+  .map(attr => `            ${attr.name}: detail.${attr.name},`)
+  .join('\n')}
           );
           
           await http.post(
@@ -1838,11 +1963,14 @@ ${(rel.associativeEntity.attributes || []).filter(attr =>
           print('Error saving ${rel.associativeEntity.label.toLowerCase()} detail: \$e');
         }
       }`;
-}).join('\n')}
+  })
+  .join('\n')}
     } catch (e) {
       print('Error in _saveDetails: \$e');
     }
-  }` : ''}
+  }`
+    : ''
+}
 
   @override
   Widget build(BuildContext context) {
@@ -1903,9 +2031,10 @@ ${ownAttributes.map(attr => `    _${attr.name}Controller.dispose();`).join('\n')
 
 // Genera el drawer de navegación
 function generateAppDrawer(classes: NodeType[]): string {
-    const drawerItems = classes.map(cls => {
-        const route = `/${cls.label.toLowerCase()}`;
-        return `          ListTile(
+  const drawerItems = classes
+    .map(cls => {
+      const route = `/${cls.label.toLowerCase()}`;
+      return `          ListTile(
             leading: const Icon(Icons.table_chart),
             title: Text('${capitalizeFirst(cls.label)}s'),
             onTap: () {
@@ -1913,9 +2042,10 @@ function generateAppDrawer(classes: NodeType[]): string {
               Navigator.pushNamed(context, '${route}');
             },
           ),`;
-    }).join('\n');
+    })
+    .join('\n');
 
-    return `import 'package:flutter/material.dart';
+  return `import 'package:flutter/material.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({Key? key}) : super(key: key);
@@ -1958,12 +2088,12 @@ ${drawerItems}
 
 // Función auxiliar - no se usa pero la mantenemos para compatibilidad
 function generateSidebar(classes: NodeType[]): string {
-    return generateAppDrawer(classes);
+  return generateAppDrawer(classes);
 }
 
 // Genera archivo de configuración centralizada de API
 function generateApiConfig(): string {
-    return `class ApiConfig {
+  return `class ApiConfig {
   // 🔧 CONFIGURACIÓN DE LA API
   // ===============================================
   // Cambia esta URL según tu entorno:
@@ -1972,7 +2102,7 @@ function generateApiConfig(): string {
   // static const String baseUrl = 'http://localhost:8080';
   
   // Para dispositivo físico (cambia por tu IP local):
-  static const String baseUrl = 'http://192.168.0.19:8080';
+  static const String baseUrl = 'http://192.168.0.11:8080';
   
   // Para producción:
   // static const String baseUrl = 'https://tu-api-produccion.com';
@@ -2002,7 +2132,7 @@ function generateApiConfig(): string {
 
 // Genera analysis_options.yaml
 function generateAnalysisOptions(): string {
-    return `include: package:flutter_lints/flutter.yaml
+  return `include: package:flutter_lints/flutter.yaml
 
 linter:
   rules:
@@ -2014,7 +2144,7 @@ linter:
 
 // Genera README.md
 function generateReadme(): string {
-    return `# Flutter CRUD Demo
+  return `# Flutter CRUD Demo
 
 A Flutter CRUD project generated automatically from UML diagram.
 
@@ -2107,74 +2237,85 @@ lib/
 }
 
 export async function generarFrontend(nodes: NodeType[], edges: EdgeType[], boardName?: string) {
-    console.log(`🚀 Generando Frontend Flutter${boardName ? ` para: ${boardName}` : ''}`);
-    console.log(`📊 Entidades encontradas: ${nodes.length}`);
-    console.log(`🔗 Relaciones encontradas: ${edges.length}`);
-    
-    const zip = new JSZip();
+  console.log(`🚀 Generando Frontend Flutter${boardName ? ` para: ${boardName}` : ''}`);
+  console.log(`📊 Entidades encontradas: ${nodes.length}`);
+  console.log(`🔗 Relaciones encontradas: ${edges.length}`);
 
-    // Filtrar solo clases normales (no asociativas) para navegación y pantallas principales
-    const classes = nodes.filter(node => !node.asociativa);
-    // Todas las clases (incluir asociativas) para modelos y servicios
-    const allClasses = nodes;
+  const zip = new JSZip();
 
-    // Estructura del proyecto Flutter
-    const libFolder = zip.folder('flutter-mvp/lib');
-    const modelsFolder = libFolder?.folder('models');
-    const servicesFolder = libFolder?.folder('services');
-    const screensFolder = libFolder?.folder('screens');
-    const widgetsFolder = libFolder?.folder('widgets');
+  // Filtrar solo clases normales (no asociativas) para navegación y pantallas principales
+  const classes = nodes.filter(node => !node.asociativa);
+  // Todas las clases (incluir asociativas) para modelos y servicios
+  const allClasses = nodes;
 
-    // Archivos principales
-    zip.file('flutter-mvp/pubspec.yaml', generatePubspecYaml());
-    zip.file('flutter-mvp/analysis_options.yaml', generateAnalysisOptions());
-    zip.file('flutter-mvp/README.md', generateReadme());
+  // Estructura del proyecto Flutter
+  const libFolder = zip.folder('flutter-mvp/lib');
+  const modelsFolder = libFolder?.folder('models');
+  const servicesFolder = libFolder?.folder('services');
+  const screensFolder = libFolder?.folder('screens');
+  const widgetsFolder = libFolder?.folder('widgets');
 
-    // Código fuente principal
-    libFolder?.file('main.dart', generateMainDart(classes));
-    
-    // Generar modelos para cada clase (incluir asociativas)
-    allClasses.forEach(cls => {
-        modelsFolder?.file(`${cls.label.toLowerCase()}_model.dart`, generateModelForClass(cls, nodes, edges));
+  // Archivos principales
+  zip.file('flutter-mvp/pubspec.yaml', generatePubspecYaml());
+  zip.file('flutter-mvp/analysis_options.yaml', generateAnalysisOptions());
+  zip.file('flutter-mvp/README.md', generateReadme());
+
+  // Código fuente principal
+  libFolder?.file('main.dart', generateMainDart(classes));
+
+  // Generar modelos para cada clase (incluir asociativas)
+  allClasses.forEach(cls => {
+    modelsFolder?.file(
+      `${cls.label.toLowerCase()}_model.dart`,
+      generateModelForClass(cls, nodes, edges)
+    );
+  });
+
+  // Generar servicios para cada clase (incluir asociativas)
+  allClasses.forEach(cls => {
+    servicesFolder?.file(`${cls.label.toLowerCase()}_service.dart`, generateServiceForClass(cls));
+  });
+
+  // Generar pantallas CRUD para cada clase
+  classes.forEach(cls => {
+    const screenFolder = screensFolder?.folder(cls.label.toLowerCase());
+    screenFolder?.file(
+      `${cls.label.toLowerCase()}_list_screen.dart`,
+      generateListScreen(cls, nodes, edges)
+    );
+    screenFolder?.file(
+      `${cls.label.toLowerCase()}_form_screen.dart`,
+      generateFormScreen(cls, nodes, edges)
+    );
+
+    // Generar pantallas de detalles para relaciones muchos-a-muchos
+    const manyToManyRelations = getManyToManyRelations(cls, nodes, edges).filter(
+      rel => rel.isMainEntity
+    );
+    manyToManyRelations.forEach(relation => {
+      screenFolder?.file(
+        `${relation.associativeEntity.label.toLowerCase()}_details_screen.dart`,
+        generateDetailsScreen(relation.associativeEntity, cls, relation.relatedEntity, nodes)
+      );
+      screenFolder?.file(
+        `${relation.associativeEntity.label.toLowerCase()}_form_dialog.dart`,
+        generateFormDialog(relation.associativeEntity, cls, relation.relatedEntity)
+      );
     });
+  });
 
-    // Generar servicios para cada clase (incluir asociativas)
-    allClasses.forEach(cls => {
-        servicesFolder?.file(`${cls.label.toLowerCase()}_service.dart`, generateServiceForClass(cls));
-    });
+  // Widgets compartidos
+  widgetsFolder?.file('sidebar.dart', generateSidebar(classes));
+  widgetsFolder?.file('app_drawer.dart', generateAppDrawer(classes));
 
-    // Generar pantallas CRUD para cada clase
-    classes.forEach(cls => {
-        const screenFolder = screensFolder?.folder(cls.label.toLowerCase());
-        screenFolder?.file(`${cls.label.toLowerCase()}_list_screen.dart`, generateListScreen(cls, nodes, edges));
-        screenFolder?.file(`${cls.label.toLowerCase()}_form_screen.dart`, generateFormScreen(cls, nodes, edges));
-        
-        // Generar pantallas de detalles para relaciones muchos-a-muchos
-        const manyToManyRelations = getManyToManyRelations(cls, nodes, edges).filter(rel => rel.isMainEntity);
-        manyToManyRelations.forEach(relation => {
-            screenFolder?.file(
-                `${relation.associativeEntity.label.toLowerCase()}_details_screen.dart`, 
-                generateDetailsScreen(relation.associativeEntity, cls, relation.relatedEntity, nodes, edges)
-            );
-            screenFolder?.file(
-                `${relation.associativeEntity.label.toLowerCase()}_form_dialog.dart`, 
-                generateFormDialog(relation.associativeEntity, cls, relation.relatedEntity, nodes, edges)
-            );
-        });
-    });
+  // Archivo de configuración centralizada
+  const configFolder = libFolder?.folder('config');
+  configFolder?.file('api_config.dart', generateApiConfig());
 
-    // Widgets compartidos
-    widgetsFolder?.file('sidebar.dart', generateSidebar(classes));
-    widgetsFolder?.file('app_drawer.dart', generateAppDrawer(classes));
+  // Descargar proyecto completo
+  const content = await zip.generateAsync({ type: 'blob' });
+  saveAs(content, 'flutter-mvp.zip');
 
-    // Archivo de configuración centralizada
-    const configFolder = libFolder?.folder('config');
-    configFolder?.file('api_config.dart', generateApiConfig());
-
-    // Descargar proyecto completo
-    const content = await zip.generateAsync({ type: 'blob' });
-    saveAs(content, 'flutter-mvp.zip');
-    
-    console.log(`✅ Frontend Flutter generado exitosamente${boardName ? ` para: ${boardName}` : ''}`);
-    console.log(`📦 Archivo descargado: flutter-mvp.zip`);
+  console.log(`✅ Frontend Flutter generado exitosamente${boardName ? ` para: ${boardName}` : ''}`);
+  console.log(`📦 Archivo descargado: flutter-mvp.zip`);
 }

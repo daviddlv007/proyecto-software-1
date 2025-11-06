@@ -4,170 +4,178 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease-in-out;
 }
 
-.uml-prompt-container {
-  background-color: white;
-  border-radius: 8px;
-  width: 600px;
-  max-width: 90%;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.uml-prompt-modal {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 20px;
+  padding: 3px;
+  width: 90%;
+  max-width: 900px;
+  max-height: 85vh;
+  animation: slideIn 0.3s ease-out;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.uml-prompt-content {
+  background: white;
+  border-radius: 18px;
+  padding: 40px;
+  overflow-y: auto;
+  max-height: calc(85vh - 6px);
 }
 
 .uml-prompt-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 30px;
 }
 
-.uml-prompt-header h2 {
+.uml-prompt-title {
+  font-size: 28px;
+  font-weight: bold;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
   margin: 0;
-  font-size: 1.5rem;
-  color: #333;
 }
 
-.close-button {
+.uml-prompt-close {
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: 28px;
   cursor: pointer;
-  color: #666;
-}
-
-.uml-prompt-body {
-  padding: 20px;
-  overflow-y: auto;
-  flex-grow: 1;
-}
-
-.instructions {
-  margin-bottom: 15px;
-  color: #555;
-  font-size: 0.9rem;
-}
-
-.uml-prompt-input {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-family: inherit;
-  font-size: 1rem;
-  resize: none;
-}
-
-.parsed-command {
-  margin-top: 15px;
-  padding: 10px;
-  background-color: #f5f5f5;
-  border-radius: 4px;
-  font-size: 0.9rem;
-}
-
-.parsed-command h4 {
-  margin-top: 0;
-  margin-bottom: 8px;
-  color: #333;
-}
-
-.parsed-command pre {
-  margin: 0;
-  white-space: pre-wrap;
-  font-family: monospace;
-}
-
-.feedback {
-  margin-top: 15px;
-  padding: 10px;
-  border-radius: 4px;
-}
-
-.feedback.success {
-  background-color: #e6f7e6;
-  color: #2e7d32;
-}
-
-.feedback.error {
-  background-color: #fdecea;
-  color: #c62828;
-}
-
-.uml-prompt-footer {
-  padding: 16px 20px;
-  border-top: 1px solid #e0e0e0;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.process-button {
-  background-color: #5e35b1;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 10px 20px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.process-button:hover {
-  background-color: #4527a0;
-}
-
-.process-button:disabled {
-  background-color: #b39ddb;
-  cursor: not-allowed;
-}
-
-/*boton del prompt*/
-.uml-open-prompt-button {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  background-color: #5e35b1;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 10px 20px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.uml-open-prompt-button:hover {
-  background-color: #4527a0;
-}
-
-.uml-open-prompt-button:disabled {
-  background-color: #b39ddb;
-  cursor: not-allowed;
-}
-
-/*segundo boton del prompt*/
-/*
-.toolbar-button[title="Asistente UML"] {
-  background-color: #5e35b1;
-  color: white;
+  color: #999;
+  transition: color 0.2s;
+  padding: 0;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  padding: 8px;
-  cursor: pointer;
-  margin-right: 8px;
-  transition: background-color 0.2s;
+  border-radius: 8px;
 }
 
-.toolbar-button[title="Asistente UML"]:hover {
-  background-color: #4527a0;
-}*/
+.uml-prompt-close:hover {
+  color: #333;
+  background: #f0f0f0;
+}
+
+.uml-prompt-description {
+  font-size: 16px;
+  color: #555;
+  line-height: 1.6;
+  margin-bottom: 25px;
+}
+
+.uml-prompt-textarea {
+  width: 100%;
+  min-height: 220px;
+  padding: 20px;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  font-size: 15px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  resize: vertical;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.uml-prompt-textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+}
+
+.uml-prompt-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+  margin-top: 30px;
+}
+
+.uml-prompt-button {
+  padding: 14px 32px;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.uml-prompt-button-cancel {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.uml-prompt-button-cancel:hover {
+  background: #e0e0e0;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+}
+
+.uml-prompt-button-submit {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.uml-prompt-button-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.uml-prompt-button-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.uml-prompt-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px;
+  background: #f0f7ff;
+  border-radius: 10px;
+  margin-top: 20px;
+  color: #667eea;
+  font-weight: 500;
+}
+
+.uml-prompt-spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

@@ -12,6 +12,8 @@ import { generarFrontend } from '../utils/frontendGenerator';
 import type { NodeChange, EdgeChange } from 'reactflow';
 import type { NodeType, EdgeType } from '../utils/umlConstants';
 import { NODE_WIDTH, NODE_HEIGHT, calculateNodeHeight } from '../utils/umlConstants';
+import UmlPrompt from './UmlPrompt';
+import './StylesUmlPrompt.css';
 
 // Tipos para datos de Supabase
 type SupabaseNodeData = {
@@ -55,10 +57,6 @@ type SupabaseEdgeOutput = {
   };
   type?: string;
 };
-
-import UmlPrompt from './UmlPrompt';
-
-import './StylesUmlPrompt.css';
 
 const buttonStyle: React.CSSProperties = {
   border: 'none',
@@ -114,20 +112,21 @@ const statusStyle: React.CSSProperties = {
 };
 
 const BoardPage = () => {
-  // Uncomment this state for the UML prompt
+  // Estado para el asistente UML
   const [isPromptOpen, setIsPromptOpen] = useState(false);
 
   // Boards colaborativos desde Supabase
   const { boards, createBoard, deleteBoard, renameBoard } = useBoards();
   const [currentBoardId, setCurrentBoardId] = useState<string>('1');
-  const [showBoardMenu, setShowBoardMenu] = useState<boolean>(false); // 🔄 Integración con Supabase - obtener UUID del board actual
+  const [showBoardMenu, setShowBoardMenu] = useState<boolean>(false);
+  
   const currentBoard = boards.find(b => b.id === currentBoardId);
   const currentDiagramId = currentBoard?.diagram_id || '550e8400-e29b-41d4-a716-446655440000';
 
   // Referencia para evitar bucles infinitos
   const lastDiagramIdRef = useRef<string | null>(null);
 
-  // 🔧 SOLUCIÓN: Solo usar el store, con tiempo real colaborativo integrado
+  // Store con sincronización en tiempo real
   const {
     nodes: storeNodes,
     edges: storeEdges,
@@ -144,21 +143,19 @@ const BoardPage = () => {
 
   console.log('🔧 Component render - currentDiagramId:', currentDiagramId, 'isLoading:', isLoading);
 
-  // Sincronizar el store con el diagrama actual (solo cuando realmente cambia el ID)
+  // Sincronizar el store con el diagrama actual
   useEffect(() => {
     if (lastDiagramIdRef.current !== currentDiagramId) {
       console.log(
         `🔄 Cambio de diagrama detectado: ${lastDiagramIdRef.current} → ${currentDiagramId}`
       );
       lastDiagramIdRef.current = currentDiagramId;
-
-      // 🔧 Solo cargar en el store si es realmente diferente
       setCurrentDiagram(currentDiagramId);
       loadDiagram(currentDiagramId);
     }
-  }, [currentDiagramId, setCurrentDiagram, loadDiagram]); // Solo ejecutar cuando cambie currentDiagramId
+  }, [currentDiagramId, setCurrentDiagram, loadDiagram]);
 
-  // 🔴 Limpiar sincronización colaborativa al desmontar componente
+  // Limpiar sincronización colaborativa al desmontar
   useEffect(() => {
     return () => {
       console.log('🧹 Limpiando sincronización al desmontar BoardPage');
@@ -166,7 +163,7 @@ const BoardPage = () => {
     };
   }, [cleanupRealtimeSync]);
 
-  // 🔄 Usar nodos y edges de Supabase en lugar de estado local
+  // Estados de UI
   const [zoom, setZoom] = useState<number>(1);
   const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -192,24 +189,19 @@ const BoardPage = () => {
   // Estados para importación de diagramas
   const jsonInputRef = useRef<HTMLInputElement>(null);
 
-  // � Sistema de debounce para guardado automático (evita refrescamiento durante edición)
+  // Sistema de debounce para guardado automático
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Función de guardado con debounce
   const debouncedSave = useCallback(() => {
-    // Limpiar timeout anterior si existe
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-
-    // Programar nuevo guardado después de 2 segundos de inactividad
     saveTimeoutRef.current = setTimeout(async () => {
       console.log('💾 Guardado automático ejecutándose...');
       await saveDiagram();
-    }, 2000); // 2 segundos de delay
+    }, 2000);
   }, [saveDiagram]);
 
-  // 🔧 Limpiar timeout al desmontar componente
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) {
@@ -218,7 +210,7 @@ const BoardPage = () => {
     };
   }, []);
 
-  // �🔄 Funciones de conversión entre tipos Supabase y UML Constants
+  // Funciones de conversión entre tipos Supabase y UML
   const convertSupabaseToUMLNodes = (supabaseNodes: SupabaseNode[]): NodeType[] => {
     return supabaseNodes.map(node => {
       const attributes =
@@ -240,12 +232,11 @@ const BoardPage = () => {
 
       return {
         ...nodeType,
-        height: calculateNodeHeight(nodeType), // Usar altura dinámica
+        height: calculateNodeHeight(nodeType),
       };
     });
   };
 
-  // 🔄 Funciones de conversión inversas (UML -> Supabase)
   const convertUMLToSupabaseNode = (node: NodeType) => ({
     id: node.id,
     type: 'default',
@@ -264,7 +255,6 @@ const BoardPage = () => {
     },
   });
 
-  // Conversión de ReactFlow Edge a UML EdgeType para funciones que lo necesiten
   const convertReactFlowToUMLEdge = (edge: ReactFlowEdge): EdgeType => {
     const validEdgeTypes = [
       'asociacion',
@@ -302,24 +292,19 @@ const BoardPage = () => {
     };
   };
 
-  // Función para normalizar multiplicidades a solo '1' o '*'
   const normalizeMultiplicity = (multiplicity: string | undefined): '1' | '*' => {
     if (!multiplicity) return '1';
-    // Cualquier cosa que contenga '..' o sea '*' se convierte a '*'
     if (multiplicity.includes('..') || multiplicity === '*') return '*';
     return '1';
   };
 
-  // ✅ Usar nodos y edges del store ReactFlow directamente
+  // Convertir nodos y edges del store
   const nodes = storeNodes ? convertSupabaseToUMLNodes(storeNodes as any) : [];
   const edges = storeEdges || [];
 
-  // Board actual para UI
   const currentBoardData = boards.find(b => b.id === currentBoardId);
 
-  // 🔄 Funciones adaptadoras para compatibilidad con código existente
   const updateNodePosition = (nodeId: string, x: number, y: number) => {
-    // 🔧 SOLUCIÓN: Solo actualizar posición localmente, sin guardar inmediatamente
     const nodeChanges: NodeChange[] = [
       {
         id: nodeId,
@@ -328,20 +313,16 @@ const BoardPage = () => {
       },
     ];
     onNodesChange(nodeChanges);
-    // 🚫 REMOVIDO: await saveDiagram(); - Causaba lag durante drag
   };
 
   const finishNodeDrag = () => {
-    // 🔧 Guardar solo cuando termine el drag para evitar lag
     debouncedSave();
   };
 
   const removeNodeAndEdges = async (nodeId: string) => {
-    // Eliminar nodo
     const nodeChanges: NodeChange[] = [{ id: nodeId, type: 'remove' }];
     onNodesChange(nodeChanges);
 
-    // Eliminar edges conectados
     const edgesToRemove = storeEdges?.filter(e => e.source === nodeId || e.target === nodeId) || [];
     const edgeChanges: EdgeChange[] = edgesToRemove.map(edge => ({ id: edge.id, type: 'remove' }));
     onEdgesChange(edgeChanges);
@@ -354,6 +335,59 @@ const BoardPage = () => {
     await saveDiagram();
   };
 
+  // 🆕 Funciones para el Asistente UML
+  const handleCreateNodeFromPrompt = async (newNode: NodeType) => {
+    console.log('🎯 Creando nodo desde prompt:', newNode);
+    
+    const supabaseNode = convertUMLToSupabaseNode(newNode);
+    const nodeChanges: NodeChange[] = [
+    { 
+      type: 'add',
+      item: supabaseNode 
+    } as any
+  ];
+  onNodesChange(nodeChanges);
+  
+  await saveDiagram();
+};
+
+  const handleCreateEdgeFromPrompt = async (newEdge: EdgeType) => {
+    console.log('🔗 Creando edge desde prompt:', newEdge);
+    
+  const supabaseEdge = convertUMLToSupabaseEdge(newEdge);
+  const edgeChanges: EdgeChange[] = [
+    { 
+      type: 'add',
+      item: supabaseEdge 
+    } as any
+  ];
+  onEdgesChange(edgeChanges);
+  
+  await saveDiagram();
+};
+
+  const handleUpdateNodeFromPrompt = async (nodeId: string, updates: Partial<NodeType>) => {
+    console.log('✏️ Actualizando nodo desde prompt:', nodeId, updates);
+    
+    await updateNode(nodeId, {
+      label: updates.label,
+      attributes: updates.attributes?.map(attr => ({
+        id: `attr-${Date.now()}`,
+        name: attr.name,
+        type: attr.datatype,
+        scope: attr.scope,
+      })),
+    } as any);
+    
+    await saveDiagram();
+  };
+
+  const handleUpdateEdgeFromPrompt = async (edgeId: string, updates: Partial<EdgeType>) => {
+    console.log('🔄 Actualizando edge desde prompt:', edgeId, updates);
+    // TODO: Implementar actualización de edges si es necesario
+    await saveDiagram();
+  };
+
   // 🔄 Mostrar estado de carga - SOLO una vez, no en bucle
   if (isLoading && !storeNodes) {
     return (
@@ -363,10 +397,6 @@ const BoardPage = () => {
       </div>
     );
   }
-
-  // Auto-guardar cambios en la pizarra actual (REMOVIDO para evitar bucle infinito)
-  // Este useEffect causaba bucles infinitos al actualizar boards constantemente
-  // TODO: Implementar auto-guardado de manera más eficiente
 
   // Funciones para manejo de pizarras múltiples
 
@@ -419,8 +449,6 @@ const BoardPage = () => {
     }
     setShowBoardMenu(false);
   };
-
-  // ✅ Función ya definida arriba con integración Supabase
 
   const deleteEdge = async (edgeId: string) => {
     const edgeChanges: EdgeChange[] = [{ id: edgeId, type: 'remove' }];
@@ -485,15 +513,8 @@ const BoardPage = () => {
       };
 
       const newAttrs = [...currentAttrs, newAttr];
-      await updateNode(id, {
-        attributes: newAttrs,
-      });
-
-      // Actualizar la altura del nodo en ReactFlow después de agregar atributo
-      // Usar updateNode del store directamente en lugar de nodeChanges
+      await updateNode(id, { attributes: newAttrs });
       updateNode(id, { attributes: newAttrs } as any);
-      
-      // 🔧 Programar guardado con debounce
       debouncedSave();
     }
   };
@@ -503,24 +524,14 @@ const BoardPage = () => {
     if (currentNode) {
       const newAttrs =
         currentNode.data?.attributes?.filter((_attr, idx: number) => idx !== attrIdx) || [];
-      await updateNode(nodeId, {
-        attributes: newAttrs,
-      });
-
-      // Actualizar la altura del nodo en ReactFlow después de eliminar atributo
-      // Usar updateNode del store directamente en lugar de nodeChanges
+      await updateNode(nodeId, { attributes: newAttrs });
       updateNode(nodeId, { attributes: newAttrs } as any);
-      
-      // 🔧 Programar guardado con debounce
       debouncedSave();
     }
   };
 
   const editNodeLabel = async (id: string, newLabel: string) => {
-    // 🔧 SOLUCIÓN: Solo actualizar localmente, sin guardar inmediatamente
     await updateNode(id, { label: newLabel });
-    
-    // � Programar guardado con debounce para evitar refrescamiento durante edición
     debouncedSave();
   };
 
@@ -537,51 +548,11 @@ const BoardPage = () => {
           idx === attrIdx ? { ...attr, [field === 'datatype' ? 'type' : field]: newValue } : attr
         ) || [];
 
-      // 🔧 SOLUCIÓN: Solo actualizar localmente, sin guardar inmediatamente
-      await updateNode(nodeId, {
-        attributes: updatedAttrs,
-      });
-      
-      // � Programar guardado con debounce para evitar refrescamiento durante edición
+      await updateNode(nodeId, { attributes: updatedAttrs });
       debouncedSave();
     }
   };
 
-  const handleCreateNodeFromPrompt = async (newNode: NodeType) => {
-    // TODO: Usar los datos del prompt para crear el nodo con data específica
-    console.log('Node creation from prompt:', newNode);
-
-    // Usar el método addClass sin parámetros (creará un nodo por defecto)
-    addClass();
-    await saveDiagram();
-  };
-
-  const handleCreateEdgeFromPrompt = async (newEdge: EdgeType) => {
-    // Por ahora, saltar la creación de edges desde prompt
-    // TODO: Implementar creación de edges usando el store correcto
-    console.log('Edge creation from prompt:', newEdge);
-    await saveDiagram();
-  };
-
-  const handleUpdateNodeFromPrompt = async (nodeId: string, updates: Partial<NodeType>) => {
-    await updateNodeData(nodeId, {
-      label: updates.label,
-      attributes: updates.attributes?.map(attr => ({
-        id: `attr-${Date.now()}`,
-        name: attr.name,
-        datatype: attr.datatype,
-        scope: attr.scope,
-      })),
-    });
-  };
-
-  const handleUpdateEdgeFromPrompt = async (edgeId: string, updates: Partial<EdgeType>) => {
-    // TODO: Implementar actualización de edges usando el store correcto
-    console.log('Edge update from prompt:', edgeId, updates);
-    await saveDiagram();
-  };
-
-  // Relaciones
   const handleStartRelation = (id: string, type: string) => {
     // 🎯 Procesar multiplicidad si viene en el formato "tipo:origen:destino"
     let relationType = type;
@@ -627,12 +598,7 @@ const BoardPage = () => {
         id: `e${Date.now()}`,
         source: relationMode.sourceId,
         target: id,
-        tipo: (relationMode.type || 'asociacion') as
-          | 'asociacion'
-          | 'agregacion'
-          | 'composicion'
-          | 'herencia'
-          | 'dependencia',
+        tipo: (relationMode.type || 'asociacion') as EdgeType['tipo'],
         multiplicidadOrigen,
         multiplicidadDestino,
       };
@@ -721,21 +687,13 @@ const BoardPage = () => {
     setCurrentMode('normal');
   };
 
-  // Funciones de zoom
-  const handleZoomIn = () => {
-    setZoom(prev => Math.min(prev + 0.1, 2));
-  };
-
-  const handleZoomOut = () => {
-    setZoom(prev => Math.max(prev - 0.1, 0.5));
-  };
-
+  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.5));
   const handleResetZoom = () => {
     setZoom(1);
     setPanOffset({ x: 0, y: 0 });
   };
 
-  // Función para centrar todas las entidades
   const handleFitAll = () => {
     if (nodes.length === 0) return;
 
@@ -748,11 +706,11 @@ const BoardPage = () => {
     const contentWidth = maxX - minX;
     const contentHeight = maxY - minY;
     const viewWidth = window.innerWidth;
-    const viewHeight = window.innerHeight - 70; // Restar altura del toolbar
+    const viewHeight = window.innerHeight - 70;
 
     const scaleX = viewWidth / contentWidth;
     const scaleY = viewHeight / contentHeight;
-    const newZoom = Math.min(scaleX, scaleY, 1.5); // Máximo 150%
+    const newZoom = Math.min(scaleX, scaleY, 1.5);
 
     setZoom(newZoom);
     setPanOffset({
@@ -782,7 +740,6 @@ const BoardPage = () => {
     );
   };
 
-  // Funciones para importación de imágenes
   const handleImportImage = () => {
     fileInputRef.current?.click();
   };
@@ -880,14 +837,6 @@ const BoardPage = () => {
         console.log(
           `✅ Importación exitosa: ${importedNodes.length} clases, ${importedEdges.length} relaciones`
         );
-        console.log(
-          `📊 Nodos importados:`,
-          importedNodes.map(n => n.id)
-        );
-        console.log(
-          `🔗 Edges importados:`,
-          importedEdges.map(e => `${e.source} → ${e.target}`)
-        );
         alert(
           `✅ Diagrama importado exitosamente!\n${importedNodes.length} clases y ${importedEdges.length} relaciones agregadas`
         );
@@ -979,7 +928,6 @@ const BoardPage = () => {
     try {
       const currentURL = window.location.href;
       await navigator.clipboard.writeText(currentURL);
-      // Mostrar feedback temporal
       alert('✅ URL copiada al portapapeles');
     } catch (error) {
       console.error('Error copiando URL:', error);
@@ -1229,18 +1177,28 @@ const BoardPage = () => {
           )}
         </div>
 
-        {/* Grupo único de herramientas */}
+        {/* Botones principales */}
         <div style={sectionStyle}>
           <button
-            onClick={() => {
-              console.log('🟡 Add Node button clicked!');
-              addNode();
-            }}
+            onClick={addNode}
             style={{ ...buttonStyle, background: '#1976d2', color: '#fff' }}
             title='Crear una nueva clase'
           >
             ➕ Nueva Clase
           </button>
+          
+          {/* Botón del Asistente UML */}
+          <button
+            onClick={() => {
+              console.log('🤖 Abriendo Asistente UML');
+              setIsPromptOpen(true);
+            }}
+            style={{ ...buttonStyle, background: '#4caf50', color: '#fff' }}
+            title='Asistente UML con IA'
+          >
+            ✨ Asistente UML
+          </button>
+
           <button
             onClick={handleImportImage}
             style={{
@@ -1254,143 +1212,53 @@ const BoardPage = () => {
           >
             {importing ? '⏳ Importando...' : '📸 Importar Imagen'}
           </button>
-          <button
-            onClick={handleImportJSON}
-            style={{
-              ...buttonStyle,
-              background: '#4caf50',
-              color: '#fff',
-            }}
-            title='Importar diagrama desde archivo JSON'
-          >
+          
+          <button onClick={handleImportJSON} style={{ ...buttonStyle, background: '#4caf50', color: '#fff' }}>
             📄 Importar JSON
           </button>
-          <button
-            onClick={handleExportJSON}
-            style={{
-              ...buttonStyle,
-              background: '#9c27b0',
-              color: '#fff',
-            }}
-            title='Exportar diagrama a archivo JSON'
-          >
+          <button onClick={handleExportJSON} style={{ ...buttonStyle, background: '#9c27b0', color: '#fff' }}>
             💾 Exportar JSON
           </button>
-          <button
-            onClick={handleClearBoard}
-            style={{
-              ...buttonStyle,
-              background: '#f44336',
-              color: '#fff',
-            }}
-            title='Limpiar toda la pizarra (eliminar todos los nodos y relaciones)'
-          >
+          <button onClick={handleClearBoard} style={{ ...buttonStyle, background: '#f44336', color: '#fff' }}>
             🗑️ Limpiar Pizarra
           </button>
           <button
-            onClick={() => handleStartManyToMany()}
+            onClick={handleStartManyToMany}
             style={{
               ...buttonStyle,
               background: currentMode === 'manyToMany' ? '#ff9800' : '#388e3c',
               color: '#fff',
             }}
-            title='Crear relación Muchos a Muchos con tabla asociativa'
             disabled={currentMode === 'relation'}
           >
             ⚡ Muchos a Muchos
           </button>
-          <button
-            onClick={handleGenerarBackend}
-            style={{ ...buttonStyle, background: '#ff9800', color: '#fff' }}
-            title='Generar código del backend'
-          >
+          <button onClick={handleGenerarBackend} style={{ ...buttonStyle, background: '#ff9800', color: '#fff' }}>
             ⚙️ Backend
           </button>
-          <button
-            onClick={handleGenerarFrontend}
-            style={{ ...buttonStyle, background: '#2196f3', color: '#fff' }}
-            title='Generar código del frontend'
-          >
+          <button onClick={handleGenerarFrontend} style={{ ...buttonStyle, background: '#2196f3', color: '#fff' }}>
             📱 Frontend
           </button>
 
-          {/* Separador para zoom */}
-          <div
-            style={{
-              width: '1px',
-              height: '30px',
-              background: 'rgba(255,255,255,0.3)',
-              margin: '0 8px',
-            }}
-          ></div>
-
-          {/* Controles de zoom */}
-          <button
-            onClick={handleZoomOut}
-            style={{
-              ...buttonStyle,
-              background: '#9c27b0',
-              color: '#fff',
-              minWidth: '40px',
-              padding: '10px',
-            }}
-            title='Alejar'
-          >
+          {/* Controles de zoom - sin cambios */}
+          <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.3)', margin: '0 8px' }}></div>
+          <button onClick={handleZoomOut} style={{ ...buttonStyle, background: '#9c27b0', color: '#fff', minWidth: '40px', padding: '10px' }}>
             🔍-
           </button>
           <span style={{ color: '#fff', fontSize: 12, minWidth: '45px', textAlign: 'center' }}>
             {Math.round(zoom * 100)}%
           </span>
-          <button
-            onClick={handleZoomIn}
-            style={{
-              ...buttonStyle,
-              background: '#9c27b0',
-              color: '#fff',
-              minWidth: '40px',
-              padding: '10px',
-            }}
-            title='Acercar'
-          >
+          <button onClick={handleZoomIn} style={{ ...buttonStyle, background: '#9c27b0', color: '#fff', minWidth: '40px', padding: '10px' }}>
             🔍+
           </button>
-          <button
-            onClick={handleResetZoom}
-            style={{
-              ...buttonStyle,
-              background: '#9c27b0',
-              color: '#fff',
-              minWidth: '50px',
-              padding: '10px',
-            }}
-            title='Restablecer zoom'
-          >
+          <button onClick={handleResetZoom} style={{ ...buttonStyle, background: '#9c27b0', color: '#fff', minWidth: '50px', padding: '10px' }}>
             🎯
           </button>
-          <button
-            onClick={handleFitAll}
-            style={{
-              ...buttonStyle,
-              background: '#9c27b0',
-              color: '#fff',
-              minWidth: '50px',
-              padding: '10px',
-            }}
-            title='Ajustar todo en pantalla'
-          >
+          <button onClick={handleFitAll} style={{ ...buttonStyle, background: '#9c27b0', color: '#fff', minWidth: '50px', padding: '10px' }}>
             📐
-          </button>
-          <button
-            className='toolbar-button'
-            title='Asistente UML'
-            onClick={() => setIsPromptOpen(true)}
-            style={{ ...buttonStyle, background: '#4caf50', color: '#fff' }}
-          >
-            🤖 Asistente UML
           </button>
         </div>
 
-        {/* Espacio flexible */}
         <div style={{ flex: 1 }}></div>
 
         {/* Instrucciones y cancelar (solo cuando aplica) */}
@@ -1398,39 +1266,26 @@ const BoardPage = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {currentMode === 'manyToMany' && (
               <span style={{ color: '#fff', fontSize: 12 }}>
-                {!manyToManyMode?.sourceId
-                  ? '1️⃣ Selecciona la primera clase'
-                  : '2️⃣ Selecciona la segunda clase'}
+                {!manyToManyMode?.sourceId ? '1️⃣ Selecciona la primera clase' : '2️⃣ Selecciona la segunda clase'}
               </span>
             )}
             {currentMode === 'relation' && (
               <span style={{ color: '#fff', fontSize: 12 }}>
-                {!relationMode?.sourceId
-                  ? '1️⃣ Selecciona la clase origen'
-                  : '2️⃣ Selecciona la clase destino'}
+                {!relationMode?.sourceId ? '1️⃣ Selecciona la clase origen' : '2️⃣ Selecciona la clase destino'}
               </span>
             )}
-            <button
-              onClick={cancelCurrentMode}
-              style={{ ...buttonStyle, background: '#f44336', color: '#fff', marginRight: '0' }}
-              title='Cancelar operación actual'
-            >
+            <button onClick={cancelCurrentMode} style={{ ...buttonStyle, background: '#f44336', color: '#fff', marginRight: '0' }}>
               ❌ Cancelar
             </button>
           </div>
         )}
       </div>
 
-      {/* Hidden file input for JSON import */}
-      <input
-        ref={jsonInputRef}
-        type='file'
-        accept='.json'
-        style={{ display: 'none' }}
-        onChange={handleJSONFileSelect}
-      />
+      {/* Hidden inputs */}
+      <input ref={jsonInputRef} type='file' accept='.json' style={{ display: 'none' }} onChange={handleJSONFileSelect} />
+      <input ref={fileInputRef} type='file' accept='image/*' onChange={handleFileSelect} style={{ display: 'none' }} />
 
-      {/* Área de trabajo con zoom */}
+      {/* Canvas */}
       <div
         style={{
           transform: `scale(${zoom}) translate(${panOffset.x}px, ${panOffset.y}px)`,
@@ -1445,12 +1300,7 @@ const BoardPage = () => {
             id: edge.id,
             source: edge.source,
             target: edge.target,
-            tipo: (edge.data?.edgeType || 'asociacion') as
-              | 'asociacion'
-              | 'agregacion'
-              | 'composicion'
-              | 'herencia'
-              | 'dependencia',
+            tipo: (edge.data?.edgeType || 'asociacion') as EdgeType['tipo'],
             multiplicidadOrigen: (edge.data?.sourceMultiplicity || '1') as '1' | '*',
             multiplicidadDestino: (edge.data?.targetMultiplicity || '1') as '1' | '*',
           }))}
@@ -1480,16 +1330,7 @@ const BoardPage = () => {
         ))}
       </div>
 
-      {/* Input file oculto para importar imágenes */}
-      <input
-        ref={fileInputRef}
-        type='file'
-        accept='image/*'
-        onChange={handleFileSelect}
-        style={{ display: 'none' }}
-      />
-
-      {/* Overlay de importación */}
+      {/* Import overlay */}
       {importing && (
         <div
           style={{
@@ -1506,25 +1347,20 @@ const BoardPage = () => {
             color: '#fff',
           }}
         >
-          <div
-            style={{
-              background: '#333',
-              padding: '20px',
-              borderRadius: '8px',
-              textAlign: 'center',
-            }}
-          >
+          <div style={{ background: '#333', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
             <div style={{ fontSize: '18px', marginBottom: '10px' }}>📤 Importando diagrama...</div>
-            <div style={{ fontSize: '14px', opacity: 0.8 }}>
-              {importProgress || 'Procesando imagen...'}
-            </div>
+            <div style={{ fontSize: '14px', opacity: 0.8 }}>{importProgress || 'Procesando imagen...'}</div>
           </div>
         </div>
       )}
 
+      {/* 🆕 Modal del Asistente UML */}
       <UmlPrompt
         isOpen={isPromptOpen}
-        onClose={() => setIsPromptOpen(false)}
+        onClose={() => {
+          console.log('❌ Cerrando Asistente UML');
+          setIsPromptOpen(false);
+        }}
         onCreateNode={handleCreateNodeFromPrompt}
         onCreateEdge={handleCreateEdgeFromPrompt}
         onUpdateNode={handleUpdateNodeFromPrompt}

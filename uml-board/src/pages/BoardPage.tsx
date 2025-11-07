@@ -12,6 +12,7 @@ import { generarFrontend } from '../utils/frontendGenerator';
 import type { NodeChange, EdgeChange } from 'reactflow';
 import type { NodeType, EdgeType } from '../utils/umlConstants';
 import { NODE_WIDTH, NODE_HEIGHT, calculateNodeHeight } from '../utils/umlConstants';
+//estos son parte del asistente uml
 import UmlPrompt from './UmlPrompt';
 import './StylesUmlPrompt.css';
 
@@ -388,7 +389,7 @@ const BoardPage = () => {
     await saveDiagram();
   };
 
-  // 🔄 Mostrar estado de carga - SOLO una vez, no en bucle
+  // Mostrar estado de carga - SOLO una vez, no en bucle
   if (isLoading && !storeNodes) {
     return (
       <div style={{ padding: '20px', textAlign: 'center' }}>
@@ -488,7 +489,7 @@ const BoardPage = () => {
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (draggingId && dragOffset) {
-      // � Mover nodo solo localmente (sin await ni guardado inmediato)
+      //  Mover nodo solo localmente (sin await ni guardado inmediato)
       const newX = e.clientX / zoom - panOffset.x - dragOffset.x;
       const newY = e.clientY / zoom - panOffset.y - dragOffset.y;
       updateNodePosition(draggingId, newX, newY);

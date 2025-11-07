@@ -148,7 +148,7 @@ def analyze_diagram(image_url: str, openai_token: str, model: str = "gpt-4o-mini
             }
         ],
         "max_tokens": min(max_tokens, config["max_tokens"]),
-        "temperature": 0.1  # Más determinístico para JSON
+        "temperature": 0.1  # Más determinístico para JSON.
     }
     
     try:

@@ -121,7 +121,7 @@ Respuesta: [{"type":"update","target":"class","data":{"id":"node_cliente_id","la
   };
 
   const payload = {
-    model: 'gpt-4o-mini', //gpt-4-turbo-preview -> mas caro 
+    model: 'gpt-4o-mini', //gpt-4-turbo-preview -> mas caro xd
     messages: [
       {
         role: 'system',

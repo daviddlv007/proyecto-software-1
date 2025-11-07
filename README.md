@@ -66,4 +66,9 @@ Additional documentation can be found in:
 
 ---
 
-*Clean, focused, and professional UML diagramming solution.*
+*Clean, focused, and professional UML diagramming solution.* 
+
+# explication this funcionamiento del asistente UML
+1.- escribir solicitud/pedido dentro de la caja de prompt
+2.- pedido: crear o editar 
+3.- procesa OPEN AI this pedido y ejecuta

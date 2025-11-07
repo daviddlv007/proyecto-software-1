@@ -2,7 +2,7 @@
 import type { NodeType, EdgeType } from '../utils/umlConstants';
 
 // Token OpenAI hardcodeado 
-const OPENAI_TOKEN = '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'; 
+const OPENAI_TOKEN = 'mi_token_aqui'; 
 
 export interface DiagramAction {
   type: 'create' | 'update' | 'delete';

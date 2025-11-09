@@ -42,7 +42,7 @@ Relaciones existentes: ${JSON.stringify(contextRelations, null, 2)}
 
 TIPOS DE ACCIONES DISPONIBLES:
 1. Crear clase: 
-   { type: 'create', target: 'class', data: { label: string, attributes: [{name: string, datatype: 'String'|'Integer'|'Float'|'Boolean'|'Date', scope: 'public'|'private'|'protected'}] } }
+   { type: 'create', target: 'class', data: { label: string, attributes: [{name: string, datatype: 'String'|'Integer'|'Float'|'Boolean'|'Date', scope: 'public'|'private'|'protected'}], asociativa?: boolean, relaciona?: [string, string] } }
 
 2. Actualizar clase existente: 
    { type: 'update', target: 'class', data: { id: string, label?: string, attributes?: [...] } }
@@ -67,7 +67,7 @@ REGLAS DE INTERPRETACIÓN:
 - "tiene uno", "posee" → relación de composición (tipo: 'composicion', multiplicidad 1:1)
 - "usa", "utiliza", "depende de" → relación de dependencia (tipo: 'dependencia')
 - "se asocia con", "está relacionado" → relación de asociación (tipo: 'asociacion')
-- "muchos a muchos", "m:n", "* a *", "relación muchos" → SIEMPRE crear clase intermedia con nombre "ClaseA_ClaseB" + dos relaciones (ClaseA → Intermedia [1:*] y ClaseB → Intermedia [1:*])
+- "muchos a muchos", "m:n", "* a *", "relación muchos" → SIEMPRE crear clase intermedia marcada como asociativa + dos relaciones de asociación (1:*) desde ambas clases hacia la intermedia
 
 TIPOS DE DATOS VÁLIDOS:
 - String: textos, cadenas, varchar, char
@@ -116,10 +116,10 @@ Usuario: "Cambia el nombre de Cliente a Comprador"
 Respuesta: [{"type":"update","target":"class","data":{"id":"node_cliente_id","label":"Comprador"}}]
 
 Usuario: "Relación muchos a muchos entre Estudiante y Curso"
-Respuesta: [{"type":"create","target":"class","data":{"label":"Estudiante_Curso","attributes":[]}},{"type":"create","target":"edge","data":{"sourceLabel":"Estudiante","targetLabel":"Estudiante_Curso","tipo":"asociacion","multiplicidadOrigen":"1","multiplicidadDestino":"*"}},{"type":"create","target":"edge","data":{"sourceLabel":"Curso","targetLabel":"Estudiante_Curso","tipo":"asociacion","multiplicidadOrigen":"1","multiplicidadDestino":"*"}}]
+Respuesta: [{"type":"create","target":"class","data":{"label":"Estudiante_Curso","attributes":[],"asociativa":true}},{"type":"create","target":"edge","data":{"sourceLabel":"Estudiante","targetLabel":"Estudiante_Curso","tipo":"asociacion","multiplicidadOrigen":"1","multiplicidadDestino":"*"}},{"type":"create","target":"edge","data":{"sourceLabel":"Curso","targetLabel":"Estudiante_Curso","tipo":"asociacion","multiplicidadOrigen":"1","multiplicidadDestino":"*"}}]
 
 Usuario: "Crear relación * a * entre CELULAR y CATEGORIA"
-Respuesta: [{"type":"create","target":"class","data":{"label":"CELULAR_CATEGORIA","attributes":[]}},{"type":"create","target":"edge","data":{"sourceLabel":"CELULAR","targetLabel":"CELULAR_CATEGORIA","tipo":"asociacion","multiplicidadOrigen":"1","multiplicidadDestino":"*"}},{"type":"create","target":"edge","data":{"sourceLabel":"CATEGORIA","targetLabel":"CELULAR_CATEGORIA","tipo":"asociacion","multiplicidadOrigen":"1","multiplicidadDestino":"*"}}]`;
+Respuesta: [{"type":"create","target":"class","data":{"label":"CELULAR_CATEGORIA","attributes":[],"asociativa":true}},{"type":"create","target":"edge","data":{"sourceLabel":"CELULAR","targetLabel":"CELULAR_CATEGORIA","tipo":"asociacion","multiplicidadOrigen":"1","multiplicidadDestino":"*"}},{"type":"create","target":"edge","data":{"sourceLabel":"CATEGORIA","targetLabel":"CELULAR_CATEGORIA","tipo":"asociacion","multiplicidadOrigen":"1","multiplicidadDestino":"*"}}]`;
 
   const headers = {
     'Content-Type': 'application/json',

@@ -178,11 +178,12 @@ const UmlPrompt: React.FC<UmlPromptProps> = ({
           x: 200 + Math.random() * 300,
           y: 200 + Math.random() * 300,
           attributes: action.data.attributes || [],
-          asociativa: action.data.label?.includes('_') || false, // Detectar clases intermedias
+          asociativa: action.data.asociativa || false,
+          relaciona: action.data.relaciona || undefined,
         };
         await onCreateNode(newNode);
         newlyCreatedClasses.set(newNode.label, newNode.id);
-        console.log('✅ Clase creada:', newNode.label);
+        console.log('✅ Clase creada:', newNode.label, 'asociativa:', newNode.asociativa);
         await new Promise(resolve => setTimeout(resolve, 100)); // Esperar 100ms
       } catch (err) {
         console.error('❌ Error creando clase:', action, err);

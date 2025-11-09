@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import './StylesUmlPrompt.css';
 import { processUMLPrompt } from '../services/aiPromptService';
 import type { DiagramAction } from '../services/aiPromptService';
@@ -28,8 +28,108 @@ const UmlPrompt: React.FC<UmlPromptProps> = ({
   const [prompt, setPrompt] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const finalTranscriptRef = useRef<string>('');
 
-  if (!isOpen) return null;
+  // Inicializar Web Speech API
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = 'es-ES';
+
+      recognitionRef.current.onstart = () => {
+        console.log('🎤 Reconocimiento iniciado');
+      };
+
+      recognitionRef.current.onresult = (event: any) => {
+        console.log('📝 Evento onresult disparado', event.results.length);
+        let interimTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          console.log(`Resultado ${i}:`, transcript, 'isFinal:', event.results[i].isFinal);
+          
+          if (event.results[i].isFinal) {
+            finalTranscriptRef.current += transcript + ' ';
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        const fullText = finalTranscriptRef.current + interimTranscript;
+        console.log('✍️ Actualizando prompt:', fullText);
+        setPrompt(fullText);
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error('❌ Error en reconocimiento de voz:', event.error);
+        if (event.error === 'no-speech') {
+          console.log('⚠️ No se detectó voz, continuando...');
+        } else if (event.error === 'not-allowed') {
+          setIsListening(false);
+          setError('❌ Permiso de micrófono denegado. Por favor, permite el acceso al micrófono.');
+        } else {
+          setIsListening(false);
+          setError(`Error en reconocimiento de voz: ${event.error}`);
+        }
+      };
+
+      recognitionRef.current.onend = () => {
+        console.log('⏹️ Reconocimiento finalizado');
+        if (isListening) {
+          try {
+            console.log('🔄 Reiniciando reconocimiento...');
+            recognitionRef.current.start();
+          } catch (err) {
+            console.log('❌ No se pudo reiniciar:', err);
+            setIsListening(false);
+          }
+        }
+      };
+    } else {
+      console.warn('⚠️ Web Speech API no disponible en este navegador');
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (err) {
+          console.log('Ya estaba detenido');
+        }
+      }
+    };
+  }, [isListening]);
+
+  const toggleVoiceRecognition = () => {
+    if (!recognitionRef.current) {
+      setError('❌ Tu navegador no soporta reconocimiento de voz. Usa Chrome o Edge.');
+      return;
+    }
+
+    if (isListening) {
+      console.log('🛑 Deteniendo reconocimiento de voz');
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      console.log('▶️ Iniciando reconocimiento de voz');
+      setError(null);
+      finalTranscriptRef.current = prompt;
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (error) {
+        console.error('❌ Error iniciando reconocimiento:', error);
+        setError('Error al iniciar el reconocimiento de voz. Verifica los permisos del micrófono.');
+      }
+    }
+  };
 
   const executeActions = async (actions: DiagramAction[]) => {
     for (const action of actions) {
@@ -96,6 +196,12 @@ const UmlPrompt: React.FC<UmlPromptProps> = ({
   const handleSubmit = async () => {
     if (!prompt.trim()) return;
 
+    // Detener grabación si está activa
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
+
     setIsProcessing(true);
     setError(null);
 
@@ -107,6 +213,7 @@ const UmlPrompt: React.FC<UmlPromptProps> = ({
       await executeActions(actions);
       
       setPrompt('');
+      finalTranscriptRef.current = '';
       onClose();
       console.log('✅ Proceso completado exitosamente');
     } catch (err) {
@@ -123,6 +230,8 @@ const UmlPrompt: React.FC<UmlPromptProps> = ({
       handleSubmit();
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="uml-prompt-overlay" onClick={onClose}>
@@ -141,6 +250,7 @@ const UmlPrompt: React.FC<UmlPromptProps> = ({
           </p>
 
           <textarea
+            ref={textareaRef}
             className="uml-prompt-textarea"
             placeholder="Podes poner algo asi: 'Crea una clase Producto con atributos nombre tipo String, precio tipo Float y stock tipo Integer. Luego haz que Producto tenga una relación de composición con Categoría.'"
             value={prompt}
@@ -177,6 +287,16 @@ const UmlPrompt: React.FC<UmlPromptProps> = ({
             >
               Cancelar
             </button>
+            
+            <button
+              className={`uml-prompt-button uml-prompt-button-voice ${isListening ? 'listening' : ''}`}
+              onClick={toggleVoiceRecognition}
+              disabled={isProcessing}
+              title={isListening ? 'Detener grabación' : 'Iniciar dictado por voz'}
+            >
+              {isListening ? '🎤 Grabando...' : '🎤 Dictar'}
+            </button>
+
             <button
               className="uml-prompt-button uml-prompt-button-submit"
               onClick={handleSubmit}

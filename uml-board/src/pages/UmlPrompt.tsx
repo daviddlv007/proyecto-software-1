@@ -162,21 +162,37 @@ const UmlPrompt: React.FC<UmlPromptProps> = ({
   };
 
   const executeActions = async (actions: DiagramAction[]) => {
-    for (const action of actions) {
+    // Separar acciones: primero crear clases, luego relaciones
+    const createClassActions = actions.filter(a => a.type === 'create' && a.target === 'class');
+    const otherActions = actions.filter(a => !(a.type === 'create' && a.target === 'class'));
+    
+    // Mapa para almacenar las clases recién creadas
+    const newlyCreatedClasses = new Map<string, string>(); // label -> id
+
+    // Fase 1: Crear todas las clases primero
+    for (const action of createClassActions) {
       try {
-        if (action.type === 'create' && action.target === 'class') {
-          const newNode: NodeType = {
-            id: `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            label: action.data.label || 'NuevaClase',
-            x: 200 + Math.random() * 300,
-            y: 200 + Math.random() * 300,
-            attributes: action.data.attributes || [],
-            asociativa: false,
-          };
-          await onCreateNode(newNode);
-          console.log('✅ Clase creada:', newNode.label);
-        } 
-        else if (action.type === 'create' && action.target === 'attribute') {
+        const newNode: NodeType = {
+          id: `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          label: action.data.label || 'NuevaClase',
+          x: 200 + Math.random() * 300,
+          y: 200 + Math.random() * 300,
+          attributes: action.data.attributes || [],
+          asociativa: action.data.label?.includes('_') || false, // Detectar clases intermedias
+        };
+        await onCreateNode(newNode);
+        newlyCreatedClasses.set(newNode.label, newNode.id);
+        console.log('✅ Clase creada:', newNode.label);
+        await new Promise(resolve => setTimeout(resolve, 100)); // Esperar 100ms
+      } catch (err) {
+        console.error('❌ Error creando clase:', action, err);
+      }
+    }
+
+    // Fase 2: Ejecutar otras acciones (atributos, relaciones, etc.)
+    for (const action of otherActions) {
+      try {
+        if (action.type === 'create' && action.target === 'attribute') {
           const targetNode = existingNodes.find(n => n.id === action.data.classId);
           if (targetNode) {
             const newAttributes = [
@@ -192,8 +208,24 @@ const UmlPrompt: React.FC<UmlPromptProps> = ({
           }
         } 
         else if (action.type === 'create' && action.target === 'edge') {
-          const sourceNode = existingNodes.find(n => n.label === action.data.sourceLabel);
-          const targetNode = existingNodes.find(n => n.label === action.data.targetLabel);
+          // Buscar en nodos existentes O en los recién creados
+          let sourceNode = existingNodes.find(n => n.label === action.data.sourceLabel);
+          let targetNode = existingNodes.find(n => n.label === action.data.targetLabel);
+          
+          // Si no los encuentra en existentes, buscar en recién creados
+          if (!sourceNode && newlyCreatedClasses.has(action.data.sourceLabel)) {
+            sourceNode = { 
+              id: newlyCreatedClasses.get(action.data.sourceLabel)!, 
+              label: action.data.sourceLabel 
+            } as NodeType;
+          }
+          
+          if (!targetNode && newlyCreatedClasses.has(action.data.targetLabel)) {
+            targetNode = { 
+              id: newlyCreatedClasses.get(action.data.targetLabel)!, 
+              label: action.data.targetLabel 
+            } as NodeType;
+          }
           
           if (sourceNode && targetNode) {
             const newEdge: EdgeType = {

@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NodeType, EdgeType } from '../utils/umlConstants';
 
-// Token OpenAI desde variable de entorno
-const OPENAI_TOKEN = import.meta.env.VITE_OPENAI_API_KEY || ''; 
+// Token OpenAI 
+const OPENAI_TOKEN = 'mi-token-aqui'; 
 
 export interface DiagramAction {
   type: 'create' | 'update' | 'delete';
@@ -67,7 +67,7 @@ REGLAS DE INTERPRETACIÓN:
 - "tiene uno", "posee" → relación de composición (tipo: 'composicion', multiplicidad 1:1)
 - "usa", "utiliza", "depende de" → relación de dependencia (tipo: 'dependencia')
 - "se asocia con", "está relacionado" → relación de asociación (tipo: 'asociacion')
-- "muchos a muchos", "m:n", "relación muchos" → crear tabla asociativa intermedia
+- "muchos a muchos", "m:n", "* a *", "relación muchos" → SIEMPRE crear clase intermedia con nombre "ClaseA_ClaseB" + dos relaciones (ClaseA → Intermedia [1:*] y ClaseB → Intermedia [1:*])
 
 TIPOS DE DATOS VÁLIDOS:
 - String: textos, cadenas, varchar, char
@@ -113,7 +113,13 @@ Usuario: "Elimina la clase Usuario"
 Respuesta: [{"type":"delete","target":"class","data":{"id":"node_usuario_id"}}]
 
 Usuario: "Cambia el nombre de Cliente a Comprador"
-Respuesta: [{"type":"update","target":"class","data":{"id":"node_cliente_id","label":"Comprador"}}]`;
+Respuesta: [{"type":"update","target":"class","data":{"id":"node_cliente_id","label":"Comprador"}}]
+
+Usuario: "Relación muchos a muchos entre Estudiante y Curso"
+Respuesta: [{"type":"create","target":"class","data":{"label":"Estudiante_Curso","attributes":[]}},{"type":"create","target":"edge","data":{"sourceLabel":"Estudiante","targetLabel":"Estudiante_Curso","tipo":"asociacion","multiplicidadOrigen":"1","multiplicidadDestino":"*"}},{"type":"create","target":"edge","data":{"sourceLabel":"Curso","targetLabel":"Estudiante_Curso","tipo":"asociacion","multiplicidadOrigen":"1","multiplicidadDestino":"*"}}]
+
+Usuario: "Crear relación * a * entre CELULAR y CATEGORIA"
+Respuesta: [{"type":"create","target":"class","data":{"label":"CELULAR_CATEGORIA","attributes":[]}},{"type":"create","target":"edge","data":{"sourceLabel":"CELULAR","targetLabel":"CELULAR_CATEGORIA","tipo":"asociacion","multiplicidadOrigen":"1","multiplicidadDestino":"*"}},{"type":"create","target":"edge","data":{"sourceLabel":"CATEGORIA","targetLabel":"CELULAR_CATEGORIA","tipo":"asociacion","multiplicidadOrigen":"1","multiplicidadDestino":"*"}}]`;
 
   const headers = {
     'Content-Type': 'application/json',

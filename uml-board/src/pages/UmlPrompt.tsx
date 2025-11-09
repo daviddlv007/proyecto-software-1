@@ -32,80 +32,100 @@ const UmlPrompt: React.FC<UmlPromptProps> = ({
   const recognitionRef = useRef<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const finalTranscriptRef = useRef<string>('');
+  const isListeningRef = useRef<boolean>(false);
 
-  // Inicializar Web Speech API
+  // Inicializar Web Speech API solo una vez
   useEffect(() => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = 'es-ES';
-
-      recognitionRef.current.onstart = () => {
-        console.log('🎤 Reconocimiento iniciado');
-      };
-
-      recognitionRef.current.onresult = (event: any) => {
-        console.log('📝 Evento onresult disparado', event.results.length);
-        let interimTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          console.log(`Resultado ${i}:`, transcript, 'isFinal:', event.results[i].isFinal);
-          
-          if (event.results[i].isFinal) {
-            finalTranscriptRef.current += transcript + ' ';
-          } else {
-            interimTranscript += transcript;
-          }
-        }
-
-        const fullText = finalTranscriptRef.current + interimTranscript;
-        console.log('✍️ Actualizando prompt:', fullText);
-        setPrompt(fullText);
-      };
-
-      recognitionRef.current.onerror = (event: any) => {
-        console.error('❌ Error en reconocimiento de voz:', event.error);
-        if (event.error === 'no-speech') {
-          console.log('⚠️ No se detectó voz, continuando...');
-        } else if (event.error === 'not-allowed') {
-          setIsListening(false);
-          setError('❌ Permiso de micrófono denegado. Por favor, permite el acceso al micrófono.');
-        } else {
-          setIsListening(false);
-          setError(`Error en reconocimiento de voz: ${event.error}`);
-        }
-      };
-
-      recognitionRef.current.onend = () => {
-        console.log('⏹️ Reconocimiento finalizado');
-        if (isListening) {
-          try {
-            console.log('🔄 Reiniciando reconocimiento...');
-            recognitionRef.current.start();
-          } catch (err) {
-            console.log('❌ No se pudo reiniciar:', err);
-            setIsListening(false);
-          }
-        }
-      };
-    } else {
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
       console.warn('⚠️ Web Speech API no disponible en este navegador');
+      return;
     }
 
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    recognitionRef.current = new SpeechRecognition();
+    
+    recognitionRef.current.continuous = true;
+    recognitionRef.current.interimResults = true;
+    recognitionRef.current.lang = 'es-ES';
+
+    recognitionRef.current.onstart = () => {
+      console.log('🎤 Reconocimiento iniciado - ONSTART');
+      isListeningRef.current = true;
+    };
+
+    recognitionRef.current.onresult = (event: any) => {
+      console.log('📝 Evento onresult disparado - Total results:', event.results.length, 'ResultIndex:', event.resultIndex);
+      let interimTranscript = '';
+      let finalTranscript = '';
+
+      // IMPORTANTE: Solo procesar desde resultIndex para evitar duplicados
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        console.log(`Resultado ${i}:`, transcript, 'isFinal:', event.results[i].isFinal);
+        
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript + ' ';
+          console.log('✅ Agregando transcripción final:', transcript);
+        } else {
+          interimTranscript += transcript;
+          console.log('⏳ Transcripción interim:', transcript);
+        }
+      }
+
+      if (finalTranscript) {
+        finalTranscriptRef.current += finalTranscript;
+        console.log('📝 Acumulado total:', finalTranscriptRef.current);
+      }
+
+      const fullText = finalTranscriptRef.current + interimTranscript;
+      console.log('✍️ Texto completo mostrado:', fullText);
+      setPrompt(fullText);
+    };
+
+    recognitionRef.current.onerror = (event: any) => {
+      console.error('❌ Error en reconocimiento de voz:', event.error, event);
+      if (event.error === 'no-speech') {
+        console.log('⚠️ No se detectó voz, el reconocimiento se reiniciará automáticamente');
+        // No detenemos, dejamos que se reinicie solo
+      } else if (event.error === 'not-allowed') {
+        isListeningRef.current = false;
+        setIsListening(false);
+        setError('❌ Permiso de micrófono denegado. Por favor, permite el acceso al micrófono.');
+      } else if (event.error === 'aborted') {
+        console.log('⚠️ Reconocimiento abortado, reiniciando...');
+      } else {
+        isListeningRef.current = false;
+        setIsListening(false);
+        setError(`Error en reconocimiento de voz: ${event.error}`);
+      }
+    };
+
+    recognitionRef.current.onend = () => {
+      console.log('⏹️ Reconocimiento finalizado - isListeningRef:', isListeningRef.current);
+      if (isListeningRef.current) {
+        try {
+          console.log('🔄 Reiniciando reconocimiento automáticamente...');
+          recognitionRef.current.start();
+        } catch (err) {
+          console.error('❌ No se pudo reiniciar:', err);
+          isListeningRef.current = false;
+          setIsListening(false);
+        }
+      }
+    };
+
     return () => {
+      console.log('🧹 Limpiando reconocimiento de voz');
       if (recognitionRef.current) {
         try {
+          isListeningRef.current = false;
           recognitionRef.current.stop();
         } catch (err) {
           console.log('Ya estaba detenido');
         }
       }
     };
-  }, [isListening]);
+  }, []); // Sin dependencias - se inicializa solo una vez
 
   const toggleVoiceRecognition = () => {
     if (!recognitionRef.current) {
@@ -115,17 +135,27 @@ const UmlPrompt: React.FC<UmlPromptProps> = ({
 
     if (isListening) {
       console.log('🛑 Deteniendo reconocimiento de voz');
-      recognitionRef.current.stop();
+      isListeningRef.current = false;
       setIsListening(false);
+      try {
+        recognitionRef.current.stop();
+      } catch (err) {
+        console.error('Error deteniendo:', err);
+      }
     } else {
-      console.log('▶️ Iniciando reconocimiento de voz');
+      console.log('▶️ Iniciando reconocimiento de voz - prompt actual:', prompt);
       setError(null);
-      finalTranscriptRef.current = prompt;
+      finalTranscriptRef.current = prompt; // Mantener texto existente
+      isListeningRef.current = true;
+      setIsListening(true);
+      
       try {
         recognitionRef.current.start();
-        setIsListening(true);
+        console.log('✅ Start() ejecutado exitosamente');
       } catch (error) {
         console.error('❌ Error iniciando reconocimiento:', error);
+        isListeningRef.current = false;
+        setIsListening(false);
         setError('Error al iniciar el reconocimiento de voz. Verifica los permisos del micrófono.');
       }
     }
@@ -198,8 +228,10 @@ const UmlPrompt: React.FC<UmlPromptProps> = ({
 
     // Detener grabación si está activa
     if (isListening) {
-      recognitionRef.current.stop();
+      console.log('🛑 Deteniendo reconocimiento antes de enviar');
+      isListeningRef.current = false;
       setIsListening(false);
+      recognitionRef.current.stop();
     }
 
     setIsProcessing(true);
@@ -234,8 +266,22 @@ const UmlPrompt: React.FC<UmlPromptProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="uml-prompt-overlay" onClick={onClose}>
-      <div className="uml-prompt-modal" onClick={e => e.stopPropagation()}>
+    <div 
+      className="uml-prompt-overlay" 
+      onClick={onClose}
+      onMouseDown={(e) => e.stopPropagation()}
+      onMouseMove={(e) => e.stopPropagation()}
+      onMouseUp={(e) => e.stopPropagation()}
+      onWheel={(e) => e.stopPropagation()}
+    >
+      <div 
+        className="uml-prompt-modal" 
+        onClick={e => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onMouseMove={(e) => e.stopPropagation()}
+        onMouseUp={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
+      >
         <div className="uml-prompt-content">
           <div className="uml-prompt-header">
             <h2 className="uml-prompt-title">✨ Asistente UML Inteligente</h2>

@@ -11,6 +11,8 @@
   align-items: center;
   z-index: 9999;
   animation: fadeIn 0.2s ease-in-out;
+  pointer-events: all;
+  touch-action: none;
 }
 
 @keyframes fadeIn {

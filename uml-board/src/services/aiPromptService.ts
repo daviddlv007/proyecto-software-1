@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NodeType, EdgeType } from '../utils/umlConstants';
 
-// Token OpenAI hardcodeado 
-const OPENAI_TOKEN = 'mi_token_aqui'; 
+// Token OpenAI desde variable de entorno
+const OPENAI_TOKEN = import.meta.env.VITE_OPENAI_API_KEY || ''; 
 
 export interface DiagramAction {
   type: 'create' | 'update' | 'delete';

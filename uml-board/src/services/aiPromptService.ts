@@ -2,7 +2,7 @@
 import type { NodeType, EdgeType } from '../utils/umlConstants';
 
 // Token OpenAI 
-const OPENAI_TOKEN = 'mi-token-aqui'; 
+const OPENAI_TOKEN = 'mi_openai_token_aqui'; 
 
 export interface DiagramAction {
   type: 'create' | 'update' | 'delete';
@@ -116,10 +116,10 @@ Usuario: "Cambia el nombre de Cliente a Comprador"
 Respuesta: [{"type":"update","target":"class","data":{"id":"node_cliente_id","label":"Comprador"}}]
 
 Usuario: "Relación muchos a muchos entre Estudiante y Curso"
-Respuesta: [{"type":"create","target":"class","data":{"label":"Estudiante_Curso","attributes":[],"asociativa":true}},{"type":"create","target":"edge","data":{"sourceLabel":"Estudiante","targetLabel":"Estudiante_Curso","tipo":"asociacion","multiplicidadOrigen":"1","multiplicidadDestino":"*"}},{"type":"create","target":"edge","data":{"sourceLabel":"Curso","targetLabel":"Estudiante_Curso","tipo":"asociacion","multiplicidadOrigen":"1","multiplicidadDestino":"*"}}]
+Respuesta: [{"type":"create","target":"class","data":{"label":"Estudiante_Curso","attributes":[],"asociativa":true}},{"type":"create","target":"edge","data":{"sourceLabel":"Estudiante_Curso","targetLabel":"Estudiante","tipo":"asociacion","multiplicidadOrigen":"*","multiplicidadDestino":"1"}},{"type":"create","target":"edge","data":{"sourceLabel":"Estudiante_Curso","targetLabel":"Curso","tipo":"asociacion","multiplicidadOrigen":"*","multiplicidadDestino":"1"}}]
 
 Usuario: "Crear relación * a * entre CELULAR y CATEGORIA"
-Respuesta: [{"type":"create","target":"class","data":{"label":"CELULAR_CATEGORIA","attributes":[],"asociativa":true}},{"type":"create","target":"edge","data":{"sourceLabel":"CELULAR","targetLabel":"CELULAR_CATEGORIA","tipo":"asociacion","multiplicidadOrigen":"1","multiplicidadDestino":"*"}},{"type":"create","target":"edge","data":{"sourceLabel":"CATEGORIA","targetLabel":"CELULAR_CATEGORIA","tipo":"asociacion","multiplicidadOrigen":"1","multiplicidadDestino":"*"}}]`;
+Respuesta: [{"type":"create","target":"class","data":{"label":"CELULAR_CATEGORIA","attributes":[],"asociativa":true}},{"type":"create","target":"edge","data":{"sourceLabel":"CELULAR_CATEGORIA","targetLabel":"CELULAR","tipo":"asociacion","multiplicidadOrigen":"*","multiplicidadDestino":"1"}},{"type":"create","target":"edge","data":{"sourceLabel":"CELULAR_CATEGORIA","targetLabel":"CATEGORIA","tipo":"asociacion","multiplicidadOrigen":"*","multiplicidadDestino":"1"}}]`;
 
   const headers = {
     'Content-Type': 'application/json',

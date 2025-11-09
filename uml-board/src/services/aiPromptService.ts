@@ -2,7 +2,7 @@
 import type { NodeType, EdgeType } from '../utils/umlConstants';
 
 // Token OpenAI 
-const OPENAI_TOKEN = 'mi_openai_token_aqui'; 
+const OPENAI_TOKEN = 'mi token aqui'; 
 
 export interface DiagramAction {
   type: 'create' | 'update' | 'delete';
@@ -67,7 +67,7 @@ REGLAS DE INTERPRETACIÓN:
 - "tiene uno", "posee" → relación de composición (tipo: 'composicion', multiplicidad 1:1)
 - "usa", "utiliza", "depende de" → relación de dependencia (tipo: 'dependencia')
 - "se asocia con", "está relacionado" → relación de asociación (tipo: 'asociacion')
-- "muchos a muchos", "m:n", "* a *", "relación muchos" → SIEMPRE crear clase intermedia marcada como asociativa + dos relaciones de asociación (1:*) desde ambas clases hacia la intermedia
+- "muchos a muchos", "m:n", "* a *", "relación muchos" → SIEMPRE crear clase intermedia marcada como asociativa + dos relaciones de asociación (*:1) desde la intermedia hacia ambas clases
 
 TIPOS DE DATOS VÁLIDOS:
 - String: textos, cadenas, varchar, char
@@ -118,8 +118,8 @@ Respuesta: [{"type":"update","target":"class","data":{"id":"node_cliente_id","la
 Usuario: "Relación muchos a muchos entre Estudiante y Curso"
 Respuesta: [{"type":"create","target":"class","data":{"label":"Estudiante_Curso","attributes":[],"asociativa":true}},{"type":"create","target":"edge","data":{"sourceLabel":"Estudiante_Curso","targetLabel":"Estudiante","tipo":"asociacion","multiplicidadOrigen":"*","multiplicidadDestino":"1"}},{"type":"create","target":"edge","data":{"sourceLabel":"Estudiante_Curso","targetLabel":"Curso","tipo":"asociacion","multiplicidadOrigen":"*","multiplicidadDestino":"1"}}]
 
-Usuario: "Crear relación * a * entre CELULAR y CATEGORIA"
-Respuesta: [{"type":"create","target":"class","data":{"label":"CELULAR_CATEGORIA","attributes":[],"asociativa":true}},{"type":"create","target":"edge","data":{"sourceLabel":"CELULAR_CATEGORIA","targetLabel":"CELULAR","tipo":"asociacion","multiplicidadOrigen":"*","multiplicidadDestino":"1"}},{"type":"create","target":"edge","data":{"sourceLabel":"CELULAR_CATEGORIA","targetLabel":"CATEGORIA","tipo":"asociacion","multiplicidadOrigen":"*","multiplicidadDestino":"1"}}]`;
+Usuario: "Crear relación * a * entre extremo y NEGRA"
+Respuesta: [{"type":"create","target":"class","data":{"label":"extremo_NEGRA","attributes":[],"asociativa":true}},{"type":"create","target":"edge","data":{"sourceLabel":"extremo_NEGRA","targetLabel":"extremo","tipo":"asociacion","multiplicidadOrigen":"*","multiplicidadDestino":"1"}},{"type":"create","target":"edge","data":{"sourceLabel":"extremo_NEGRA","targetLabel":"NEGRA","tipo":"asociacion","multiplicidadOrigen":"*","multiplicidadDestino":"1"}}]`;
 
   const headers = {
     'Content-Type': 'application/json',

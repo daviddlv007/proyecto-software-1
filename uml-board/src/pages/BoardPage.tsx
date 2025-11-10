@@ -118,7 +118,6 @@ const BoardPage = ({ mode = 'host' }: { mode?: 'host' | 'guest' }) => {
   const [isPromptOpen, setIsPromptOpen] = useState(false);
 
   // Estado temporal para edición (evita conflictos con sincronización)
-  const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const editTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Boards colaborativos desde Supabase
@@ -543,7 +542,6 @@ const BoardPage = ({ mode = 'host' }: { mode?: 'host' | 'guest' }) => {
     // Guardar en Supabase después de un delay (debounce)
     editTimeoutRef.current = setTimeout(async () => {
       await saveDiagram();
-      setEditingNodeId(null);
     }, 800);
   };
 

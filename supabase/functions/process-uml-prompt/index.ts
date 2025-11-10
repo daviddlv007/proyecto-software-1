@@ -25,10 +25,10 @@ Deno.serve(async (req) => {
 
     // PROXY PURO: Solo pasar la llamada a OpenAI sin procesar nada
     const payload = {
-      model: model || 'gpt-4o', // Cambiado a gpt-4o por defecto para mayor precisión
+      model: model || 'gpt-4o-mini', // Modelo original que funcionaba
       messages,
       temperature: temperature ?? 0.2,
-      max_tokens: max_tokens || 2000,
+      max_tokens: max_tokens || 4000, // Aumentado para respuestas más completas
     };
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {

@@ -842,11 +842,65 @@ EJEMPLOS VISUALES A BUSCAR:
 - COMPOSICIÓN: Todo [rombo relleno]------ Parte  
 - AGREGACIÓN: Contenedor [rombo vacío]------ Elemento
 
-DIRECCIONALIDAD SEMÁNTICA:
-- ACTORES → ACCIONES: Cliente → Venta, Usuario → Pedido
-- CLASIFICADORES → CLASIFICADOS: Categoria → Producto
-- PRINCIPALES → DETALLES: Venta → DetalleVenta
-- PRODUCTOS → DETALLES: Producto → DetalleVenta
+REGLAS DE MAPEO:
+- Línea simple sin símbolos = "association"
+- Flecha con triángulo = "inheritance" 
+- Rombo negro/relleno = "composition"
+- Rombo blanco/vacío = "aggregation"
+- En caso de duda = "association" (más seguro)
+
+REGLAS CRÍTICAS PARA RELACIONES Y DIRECCIONALIDAD:
+- NUNCA crear relaciones bidireccionales duplicadas (A→B y B→A)
+- Cada línea del diagrama = UNA relación en el JSON
+- Para relaciones M:N intermedias: crear solo A→Intermedia y B→Intermedia (NO Intermedia→A ni Intermedia→B)
+- Direccionalidad: seguir la lógica semántica universal:
+
+PATRONES UNIVERSALES DE DIRECCIONALIDAD:
+1. CLASIFICACIÓN: Clasificador → Clasificado
+   * Ejemplos: Categoría → Producto, Tipo → Item, Clase → Elemento
+   
+2. AGREGACIÓN: Contenedor → Contenido  
+   * Ejemplos: Pedido → Detalle, Factura → Item, Proyecto → Tarea
+   
+3. JERARQUÍA: Superior → Subordinado
+   * Ejemplos: Empresa → Empleado, Departamento → Usuario
+   
+4. TEMPORALIDAD: Actor → Acción
+   * Ejemplos: Cliente → Venta, Usuario → Operación, Proveedor → Suministro
+   
+5. COMPOSICIÓN: Principal → Parte
+   * Ejemplos: Documento → Sección, Sistema → Módulo
+
+CORRECCIONES SEMÁNTICAS UNIVERSALES:
+- Entidad clasificadora (categoría, tipo, clase) → Entidad clasificada
+- Entidad principal → Entidad de detalle (que empiece con "Detalle")  
+- Actor (persona, usuario, cliente) → Acción (venta, compra, operación)
+- Contenedor (pedido, factura, documento) → Contenido (item, producto, sección)
+- Las multiplicidades deben reflejar la lógica del dominio
+
+VERIFICACIÓN OBLIGATORIA DE TIPOS DE RELACIÓN:
+- ¿Examinaste los EXTREMOS de cada línea buscando símbolos?
+- ¿Detectaste triángulos vacíos para herencia?
+- ¿Identificaste rombos rellenos para composición?
+- ¿Encontraste rombos vacíos para agregación?
+- ¿Clasificaste correctamente cada tipo de relación?
+- ¿Usaste "association" solo para líneas simples sin símbolos?
+
+VERIFICACIÓN OBLIGATORIA M:N:
+- ¿Detectaste todas las líneas con multiplicidad *?
+- ¿Identificaste correctamente las tablas intermedias?
+- ¿Las tablas intermedias conectan exactamente 2 entidades principales?
+- ¿Evitaste duplicar relaciones en ambas direcciones?
+- ⚠️ ¿CADA tabla "Detalle*" o intermedia tiene EXACTAMENTE 2 conexiones?
+- ¿Las direcciones de relaciones siguen patrones semánticos universales?
+- ¿Las multiplicidades son lógicamente consistentes?
+
+PATRONES UNIVERSALES DE VERIFICACIÓN:
+- Clasificador → Clasificado (Ej: Categoría → Item, Tipo → Elemento)
+- Contenedor → Contenido (Ej: Orden → Detalle, Documento → Sección)  
+- Actor → Acción (Ej: Usuario → Operación, Agente → Transacción)
+- Principal → Subordinado (Ej: Empresa → Empleado, Sistema → Módulo)
+- Temporal → Entidad (Ej: Período → Evento, Fecha → Registro)
 
 Formato requerido:
 {
@@ -854,7 +908,8 @@ Formato requerido:
     {
       "name": "NombreClase",
       "attributes": [
-        {"name": "atributo", "type": "String", "visibility": "private"}
+        {"name": "atributo", "type": "String", "visibility": "private"},
+        {"name": "otroAtributo", "type": "Integer", "visibility": "public"}
       ],
       "methods": []
     }
@@ -867,7 +922,20 @@ Formato requerido:
       "multiplicity": "1..*"
     }
   ]
-}`;
+}
+
+Reglas universales:
+- Visibilidad de atributos: Detectar desde el diagrama:
+  * "-" = "private" (por defecto si no hay símbolo)
+  * "+" = "public" 
+  * "#" = "protected"
+- Tipos: "String", "Integer", "Float", "Date", "Boolean" según corresponda
+- NO incluir atributos "id" - se asumen implícitamente
+- Para relaciones directas: crear una relación "association" con multiplicidad apropiada
+- Para relaciones M:N: crear relaciones separadas desde cada entidad principal hacia la tabla intermedia
+- ¡IMPORTANTE!: Una línea = una relación, evitar duplicados bidireccionales
+- ⚠️ CRÍTICO: Verificar que cada "Detalle*" tenga 2 conexiones
+- Analizar cuidadosamente las líneas y multiplicidades visibles en el diagrama`;
 
   // Llamar a la Edge Function como PROXY PURO
   const response = await fetch(ANALYZE_IMAGE_FUNCTION_URL, {

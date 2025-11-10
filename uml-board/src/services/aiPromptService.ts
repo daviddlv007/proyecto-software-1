@@ -64,7 +64,7 @@ REGLAS: Responde ÚNICAMENTE con un array JSON válido de acciones, sin explicac
           { role: 'system', content: systemPrompt },
           { role: 'user', content: prompt },
         ],
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o', // Cambiado a gpt-4o para mayor precisión
         temperature: 0.2,
         max_tokens: 2000,
       }),

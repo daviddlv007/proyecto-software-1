@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import EdgeLayer from '../components/EdgeLayer';
 import Node from '../components/Node';
 import { useBoards } from '../hooks/useDiagramSync';
+import { supabase } from '../lib/supabase.config';
 import { importDiagramFromImage } from '../services/diagramImportService';
 import { useClassStore } from '../store/classStore';
 import { generarBackend } from '../utils/backendGenerator';
@@ -112,7 +113,7 @@ const statusStyle: React.CSSProperties = {
   marginRight: '16px',
 };
 
-const BoardPage = () => {
+const BoardPage = ({ mode = 'host' }: { mode?: 'host' | 'guest' }) => {
   // Estado para el asistente UML
   const [isPromptOpen, setIsPromptOpen] = useState(false);
 
@@ -715,7 +716,17 @@ const BoardPage = () => {
     });
   };
 
+  // Helper para verificar si está bloqueado (solo afecta a invitados)
+  const isLocked = () => {
+    if (mode === 'host') return false;
+    return currentBoardData?.locked || false;
+  };
+
   const addNode = async () => {
+    if (isLocked()) {
+      alert('La pizarra está bloqueada por el anfitrión');
+      return;
+    }
     addClass();
     await saveDiagram();
   };
@@ -997,6 +1008,11 @@ const BoardPage = () => {
       {/* Barra de herramientas superior */}
       <div style={toolbarStyle} data-toolbar='true'>
         <h1 style={titleStyle}>🎨 UML Designer</h1>
+        
+        {/* Indicador de modo */}
+        <span style={{ ...statusStyle, background: mode === 'host' ? 'rgba(76, 175, 80, 0.3)' : 'rgba(33, 150, 243, 0.3)' }}>
+          {mode === 'host' ? '🏠 Anfitrión' : '👤 Invitado'}
+        </span>
 
         {/* Selector de pizarras */}
         <div style={{ position: 'relative', marginRight: '16px' }}>
@@ -1155,22 +1171,49 @@ const BoardPage = () => {
             <div style={statusStyle}>🔗 Modo Relación M:N</div>
           ) : currentMode === 'relation' ? (
             <div style={statusStyle}>➡️ Modo Relación</div>
-          ) : (
-            <button
-              onClick={handleCopyURL}
-              style={{
-                ...buttonStyle,
-                background: '#607d8b',
-                color: '#fff',
-                minWidth: '120px',
-                fontSize: 12,
-                padding: '8px 12px',
-              }}
-              title='Copiar URL de la página actual'
-            >
-              🔗 Copiar URL
-            </button>
-          )}
+          ) : mode === 'host' ? (
+            <>
+              <button
+                onClick={() => {
+                  const guestUrl = `${window.location.origin}/board/guest`;
+                  navigator.clipboard.writeText(guestUrl);
+                  alert('URL de invitado copiada al portapapeles');
+                }}
+                style={{
+                  ...buttonStyle,
+                  background: '#2196f3',
+                  color: '#fff',
+                  minWidth: '120px',
+                  fontSize: 12,
+                  padding: '8px 12px',
+                }}
+                title='Compartir URL de invitado'
+              >
+                🔗 Compartir
+              </button>
+              <button
+                onClick={async () => {
+                  if (!currentBoardData) return;
+                  const newLocked = !currentBoardData.locked;
+                  await supabase
+                    .from('boards')
+                    .update({ locked: newLocked })
+                    .eq('id', currentBoardData.id);
+                  alert(newLocked ? 'Pizarra bloqueada' : 'Pizarra desbloqueada');
+                }}
+                style={{
+                  ...buttonStyle,
+                  background: currentBoardData?.locked ? '#f44336' : '#ff9800',
+                  color: '#fff',
+                  fontSize: 12,
+                  padding: '8px 12px',
+                }}
+                title={currentBoardData?.locked ? 'Desbloquear pizarra' : 'Bloquear pizarra'}
+              >
+                {currentBoardData?.locked ? '🔒 Bloqueada' : '🔓 Bloquear'}
+              </button>
+            </>
+          ) : null}
         </div>
 
         {/* Botones principales */}
@@ -1256,6 +1299,24 @@ const BoardPage = () => {
         </div>
 
         <div style={{ flex: 1 }}></div>
+
+        {/* Botón cerrar sesión */}
+        <button
+          onClick={() => {
+            window.location.href = '/login';
+          }}
+          style={{
+            ...buttonStyle,
+            background: '#e53935',
+            color: '#fff',
+            fontSize: 12,
+            padding: '8px 12px',
+            marginRight: '8px',
+          }}
+          title='Cerrar sesión'
+        >
+          🚪 Salir
+        </button>
 
         {/* Instrucciones y cancelar (solo cuando aplica) */}
         {currentMode !== 'normal' && (

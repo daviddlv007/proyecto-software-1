@@ -397,9 +397,7 @@ const Node: React.FC<Props> = ({
                 }}
                 onClick={() => {
                   setShowMultiplicityMenu(false);
-                  onStartRelation(node.id, selectedRelationType || 'asociacion');
-                  // Guardar multiplicidades para uso posterior
-                  window.currentMultiplicity = { source: '1', target: '1' };
+                  onStartRelation(node.id, `${selectedRelationType || 'asociacion'}:1:1`);
                 }}
               >
                 1 : 1 (Uno a Uno)
@@ -414,9 +412,7 @@ const Node: React.FC<Props> = ({
                 }}
                 onClick={() => {
                   setShowMultiplicityMenu(false);
-                  onStartRelation(node.id, selectedRelationType || 'asociacion');
-                  // Guardar multiplicidades para uso posterior
-                  window.currentMultiplicity = { source: '1', target: '*' };
+                  onStartRelation(node.id, `${selectedRelationType || 'asociacion'}:1:*`);
                 }}
               >
                 1 : * (Uno a Muchos)
@@ -430,9 +426,7 @@ const Node: React.FC<Props> = ({
                 }}
                 onClick={() => {
                   setShowMultiplicityMenu(false);
-                  onStartRelation(node.id, selectedRelationType || 'asociacion');
-                  // Guardar multiplicidades para uso posterior
-                  window.currentMultiplicity = { source: '*', target: '1' };
+                  onStartRelation(node.id, `${selectedRelationType || 'asociacion'}:*:1`);
                 }}
               >
                 * : 1 (Muchos a Uno)

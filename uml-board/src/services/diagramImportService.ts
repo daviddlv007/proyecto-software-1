@@ -935,7 +935,7 @@ Reglas universales:
 - Analizar cuidadosamente las líneas y multiplicidades visibles en el diagrama`;
 
   const payload = {
-    model: 'gpt-4o-mini', // Modelo más económico
+    model: 'gpt-4o', // Modelo más económico
     messages: [
       {
         role: 'user',

@@ -129,7 +129,7 @@ Respuesta: [{"type":"create","target":"class","data":{"label":"extremo_NEGRA","a
   };
 
   const payload = {
-    model: 'gpt-4o-mini', //gpt-4-turbo-preview -> mas caro xd
+    model: 'gpt-4o', //gpt-4-turbo-preview -> mas caro xd
     messages: [
       {
         role: 'system',

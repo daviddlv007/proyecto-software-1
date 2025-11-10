@@ -17,16 +17,16 @@ const corsHeaders = {
  * OBJETIVO: Ocultar el token de OpenAI, NADA MÁS.
  */
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // Recibir el payload EXACTO que se enviaría a OpenAI
     const payload = await req.json();
-
     console.log('🔄 Proxy: Reenviando petición a OpenAI...');
+    console.log('📦 Payload size:', JSON.stringify(payload).length, 'bytes');
+    console.log('🔑 Model:', payload.model);
+    console.log('💬 Messages count:', payload.messages?.length);
 
     // Hacer la llamada a OpenAI con el payload EXACTO
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -42,6 +42,7 @@ Deno.serve(async (req) => {
       const errorData = await response.json().catch(() => ({ 
         error: { message: 'Error desconocido' } 
       }));
+      console.error('❌ OpenAI error:', errorData);
       throw new Error(`Error OpenAI: ${errorData.error?.message || response.statusText}`);
     }
 
@@ -49,6 +50,8 @@ Deno.serve(async (req) => {
     const result = await response.json();
 
     console.log('✅ Proxy: Respuesta de OpenAI recibida');
+    console.log('📊 Response usage:', result.usage);
+    console.log('🎯 Choices:', result.choices?.length);
 
     // Devolver la respuesta EXACTA sin modificar NADA
     return new Response(

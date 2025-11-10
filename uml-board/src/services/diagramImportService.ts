@@ -32,7 +32,8 @@ type OpenAIRelationship = {
   type: 'association' | 'inheritance' | 'composition' | 'aggregation';
   source: string;
   target: string;
-  multiplicity?: string;
+  sourceMultiplicity?: string; // Multiplicidad en el extremo source
+  targetMultiplicity?: string; // Multiplicidad en el extremo target
 };
 
 type OpenAIResponse = {
@@ -424,7 +425,7 @@ function convertOpenAIToUMLConstants(openaiData: OpenAIResponse): {
     const relKey = `${rel.source}-${rel.target}`;
 
     console.log(
-      `🔗 Relación ${idx + 1}: ${rel.source} → ${rel.target} (${rel.type}) mult: "${rel.multiplicity || 'sin mult'}"`
+      `🔗 Relación ${idx + 1}: ${rel.source} → ${rel.target} (${rel.type}) mult: [${rel.sourceMultiplicity || '1'}:${rel.targetMultiplicity || '1'}]`
     );
 
     if (processedRelationships.has(relKey)) {
@@ -448,8 +449,9 @@ function convertOpenAIToUMLConstants(openaiData: OpenAIResponse): {
       return;
     }
 
-    // Parsear multiplicidad
-    const { origen, destino } = parseMultiplicity(rel.multiplicity);
+    // Parsear multiplicidades de cada extremo
+    const origen = parseSingleMultiplicity(rel.sourceMultiplicity);
+    const destino = parseSingleMultiplicity(rel.targetMultiplicity);
 
     const edge: EdgeType = {
       id: `imported_${timestamp}_e${edgeCounter++}`,
@@ -563,38 +565,25 @@ function mapOpenAIRelationType(
 }
 
 /**
- * Parsea multiplicidad de formato OpenAI a formato UML interno
+ * Parsea multiplicidad individual de un extremo
  */
-function parseMultiplicity(multiplicity?: string): { origen: '1' | '*'; destino: '1' | '*' } {
-  if (!multiplicity) {
-    return { origen: '1', destino: '1' };
+function parseSingleMultiplicity(mult?: string): '1' | '*' {
+  if (!mult) return '1';
+  
+  const m = mult.toLowerCase().trim();
+  
+  // Detectar multiplicidades múltiples
+  if (m === '*' || m === '0..*' || m === '1..*' || m.includes('many') || m.includes('n')) {
+    return '*';
   }
-
-  const mult = multiplicity.toLowerCase().trim();
-
-  console.log(`🔢 Parseando multiplicidad: "${multiplicity}" → "${mult}"`);
-
-  // Detectar multiplicidades múltiples (* o many)
-  if (mult === '*' || mult === '0..*' || mult.includes('many') || mult.includes('n')) {
-    console.log(`  → Detectada multiplicidad múltiple: 1→*`);
-    return { origen: '1', destino: '*' };
+  
+  // Casos específicos 1
+  if (m === '1' || m === '1..1' || m === '0..1') {
+    return '1';
   }
-
-  // Casos específicos 1:*
-  if (mult === '1..*' || mult === 'one-to-many') {
-    console.log(`  → Detectada relación 1:*`);
-    return { origen: '1', destino: '*' };
-  }
-
-  // Casos específicos 1:1
-  if (mult === '1' || mult === '1..1' || mult === 'one-to-one') {
-    console.log(`  → Detectada relación 1:1`);
-    return { origen: '1', destino: '1' };
-  }
-
-  // Por defecto uno a uno
-  console.log(`  → Por defecto: 1:1`);
-  return { origen: '1', destino: '1' };
+  
+  // Por defecto uno
+  return '1';
 }
 
 /**
@@ -816,14 +805,18 @@ PATRONES DE RELACIONES Y DETECCIÓN VISUAL:
 3. **COMPOSICIÓN** (type: "composition"):
    - Línea con ROMBO NEGRO/RELLENO ♦ en un extremo
    - Relación "parte-de" FUERTE (si se elimina el todo, se eliminan las partes)
-   - El rombo está en la clase "contenedora" 
-   - Ejemplos: Casa ♦─ Habitación, Auto ♦─ Motor
+   - ⚠️ CRÍTICO: El rombo está en la clase CONTENEDORA (el TODO)
+   - ⚠️ DIRECCIÓN: Contenedor ♦──→ Parte (el rombo va en el contenedor)
+   - Ejemplos: Casa ♦─→ Habitación, Auto ♦─→ Motor
+   - source = clase con rombo (contenedor), target = clase contenida (parte)
 
 4. **AGREGACIÓN** (type: "aggregation"):
    - Línea con ROMBO BLANCO/VACÍO ◊ en un extremo
    - Relación "parte-de" DÉBIL (las partes pueden existir independientemente)
-   - El rombo está en la clase "contenedora"
-   - Ejemplos: Universidad ◊─ Estudiante, Equipo ◊─ Jugador
+   - ⚠️ CRÍTICO: El rombo está en la clase CONTENEDORA (el TODO)
+   - ⚠️ DIRECCIÓN: Contenedor ◊──→ Elemento (el rombo va en el contenedor)
+   - Ejemplos: Universidad ◊─→ Estudiante, Equipo ◊─→ Jugador
+   - source = clase con rombo (contenedor), target = clase contenida (elemento)
 
 INSTRUCCIONES CRÍTICAS PARA DETECCIÓN:
 - EXAMINA CUIDADOSAMENTE los extremos de cada línea
@@ -834,10 +827,33 @@ INSTRUCCIONES CRÍTICAS PARA DETECCIÓN:
 - Si VES rombo blanco/vacío → type: "aggregation"
 
 EJEMPLOS VISUALES A BUSCAR:
-- ASOCIACIÓN: ClaseA ------ ClaseB (línea simple)
-- HERENCIA: ClasePadre <---- ClaseHija (triángulo vacío)
-- COMPOSICIÓN: Todo [rombo relleno]------ Parte  
-- AGREGACIÓN: Contenedor [rombo vacío]------ Elemento
+- ASOCIACIÓN: ClaseA ------0..*------ ClaseB (línea simple)
+- HERENCIA: ClasePadre <──── ClaseHija (triángulo vacío apunta al padre)
+- COMPOSICIÓN: Contenedor ♦──→ Parte (rombo RELLENO en contenedor)
+- AGREGACIÓN: Contenedor ◊──→ Elemento (rombo VACÍO en contenedor)
+
+⚠️ INSTRUCCIÓN CRÍTICA PARA COMPOSICIÓN Y AGREGACIÓN:
+- IDENTIFICA qué lado tiene el rombo (♦ o ◊)
+- La clase con el rombo ES EL SOURCE (contenedor/todo)
+- La clase SIN rombo ES EL TARGET (parte/elemento)
+- Ejemplo: Si ves "Categoría ◊────── Producto", entonces:
+  * source = "Categoría" (tiene el rombo)
+  * target = "Producto" (sin rombo)
+  * type = "aggregation"
+
+⚠️ INSTRUCCIÓN CRÍTICA PARA MULTIPLICIDADES:
+- Lee EXACTAMENTE las multiplicidades escritas en cada extremo de la línea
+- "0..*" = muchos (usa "0..*" en el JSON)
+- "1..*" = uno o más (usa "1..*" en el JSON)
+- "*" = muchos (usa "*" en el JSON)
+- "1" = uno exactamente (usa "1" en el JSON)
+- "0..1" = cero o uno (usa "0..1" en el JSON)
+- NO ASUMAS multiplicidades, LÉELAS del diagrama
+
+EJEMPLOS DE MULTIPLICIDADES:
+- Producto 0..*──────1 Categoría → {source: "Producto", target: "Categoría", multiplicity: "0..*"}
+- Venta 1──────* DetalleVenta → {source: "Venta", target: "DetalleVenta", multiplicity: "1..*"}
+- Cliente 1──────0..* Pedido → {source: "Cliente", target: "Pedido", multiplicity: "0..*"}
 
 REGLAS DE MAPEO:
 - Línea simple sin símbolos = "association"
@@ -915,11 +931,46 @@ Formato requerido:
     {
       "type": "association",
       "source": "ClaseOrigen",
-      "target": "ClaseDestino", 
-      "multiplicity": "1..*"
+      "target": "ClaseDestino",
+      "sourceMultiplicity": "1",
+      "targetMultiplicity": "0..*"
     }
   ]
 }
+
+⚠️ FORMATO CRÍTICO PARA RELACIONES:
+- "source": clase de ORIGEN (donde sale la flecha o está el rombo)
+- "target": clase de DESTINO (donde llega la flecha o NO está el rombo)
+- "sourceMultiplicity": multiplicidad en el extremo SOURCE (ej: "1", "*", "0..*", "1..*")
+- "targetMultiplicity": multiplicidad en el extremo TARGET (ej: "1", "*", "0..*", "1..*")
+
+EJEMPLOS REALES:
+1. Producto 0..*────1 Categoría (asociación):
+   {
+     "type": "association",
+     "source": "Producto",
+     "target": "Categoría",
+     "sourceMultiplicity": "0..*",
+     "targetMultiplicity": "1"
+   }
+
+2. Venta 1────* DetalleVenta (asociación):
+   {
+     "type": "association",
+     "source": "Venta",
+     "target": "DetalleVenta",
+     "sourceMultiplicity": "1",
+     "targetMultiplicity": "*"
+   }
+
+3. Categoría ◊────* Producto (agregación, rombo en Categoría):
+   {
+     "type": "aggregation",
+     "source": "Categoría",
+     "target": "Producto",
+     "sourceMultiplicity": "1",
+     "targetMultiplicity": "*"
+   }
 
 Reglas universales:
 - Visibilidad de atributos: Detectar desde el diagrama:
@@ -958,7 +1009,7 @@ Reglas universales:
     temperature: 0.1,
   };
 
-  console.log('🤖 Analizando imagen con OpenAI Vision...');
+  console.log('🤖 Analizando imagen con IA Vision...');
 
   // CAMBIO: Usar edge function proxy en lugar de llamar directamente a OpenAI
   const response = await fetch(OPENAI_PROXY_URL, {
@@ -1116,7 +1167,7 @@ export async function importDiagramFromImage(
     const imageUrl = await uploadImageToSupabase(file);
 
     // Fase 2: Analizar con OpenAI
-    onProgress?.('Analizando diagrama con OpenAI...');
+    onProgress?.('Analizando diagrama con IA...');
     const openaiResponse = await analyzeImageWithOpenAI(imageUrl);
 
     // Fase 3: Convertir a formato UML

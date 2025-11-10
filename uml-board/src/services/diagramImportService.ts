@@ -8,9 +8,9 @@ const supabaseKey =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3ZHVleHF6aGpvbHdmeHVwdmNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5ODc3NzAsImV4cCI6MjA3NjU2Mzc3MH0.WQiWHEYBzsT0LAa5N3quDDiZlYzfOVz7lY86ZF02RjI';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Token OpenAI hardcodeado
-const OPENAI_TOKEN =
-  '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';
+// URL de la Edge Function para análisis de imágenes
+const ANALYZE_IMAGE_FUNCTION_URL = 'https://izsllyjacdhfeoexwpvh.supabase.co/functions/v1/analyze-diagram-image';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6c2xseWphY2RoZmVvZXh3cHZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzA1MTI0NjQsImV4cCI6MjA0NjA4ODQ2NH0.c7uoLAe2yN9_FNbBdm0u7m4h9MZxNwt21JVN7YQIhHI';
 
 // Tipos para el análisis OpenAI
 type OpenAIClass = {
@@ -738,244 +738,22 @@ async function uploadImageToSupabase(file: File): Promise<string> {
  * Analiza una imagen usando OpenAI Vision API
  */
 async function analyzeImageWithOpenAI(imageUrl: string): Promise<OpenAIResponse> {
-  const prompt = `Analiza este diagrama de clases UML y extrae ÚNICAMENTE la estructura en formato JSON válido.
-
-RESPONDE SOLO CON EL JSON, sin explicaciones adicionales.
-
-INSTRUCCIONES CRÍTICAS PARA RELACIONES M:N:
-- EXAMINA CUIDADOSAMENTE TODAS LAS LÍNEAS del diagrama
-- DETECTA TODAS las relaciones, especialmente relaciones muchos-a-muchos (M:N)
-- IDENTIFICA tablas intermedias/asociativas que conectan entidades principales
-- NO incluyas atributos "id" en las clases, se asumen implícitamente
-- Para multiplicidades usa formato exacto: "1", "*", "0..*", "1..*"
-
-⚠️ ANÁLISIS OBLIGATORIO DE CADA TABLA INTERMEDIA:
-Para CADA entidad que empiece con "Detalle" (DetalleVenta, DetalleCompra, etc.):
-1. BUSCA TODAS las líneas que conectan con esa entidad
-2. VERIFICA que tenga conexiones a EXACTAMENTE 2 entidades principales
-3. SI ves solo 1 conexión, BUSCA MÁS CUIDADOSAMENTE la segunda línea
-4. EJEMPLO: DetalleCompra debe conectar con Compra Y con Producto
-
-ANÁLISIS SISTEMÁTICO REQUERIDO:
-1. IDENTIFICA todas las clases/entidades en el diagrama
-2. DETECTA qué entidades son principales vs intermedias/asociativas
-3. ENCUENTRA todas las líneas que conectan clases (no omitas ninguna línea, por pequeña que sea)
-4. DETERMINA multiplicidades de cada relación con precisión
-5. CLASIFICA cada relación según su tipo UML
-6. VERIFICA que cada línea visible se convierta en una relación en el JSON
-
-⚠️ INSTRUCCIÓN CRÍTICA: EXAMINA CADA LÍNEA DEL DIAGRAMA
-- Busca líneas sólidas que conecten cajas de entidades
-- Incluye líneas cortas, largas, horizontales, verticales, diagonales
-- No omitas líneas que parezcan menos prominentes visualmente
-- Cada línea visible debe resultar en una relación en el JSON
-- Si ves una caja conectada a otra caja, debe existir una relación
-
-DETECCIÓN ESPECIAL DE RELACIONES M:N:
-Las relaciones muchos-a-muchos se pueden representar de 2 formas:
-A) LÍNEA DIRECTA con multiplicidad * en ambos lados
-B) VÍA TABLA INTERMEDIA: EntidadA → TablaIntermedia ← EntidadB
-
-REGLA CRÍTICA PARA TABLAS INTERMEDIAS:
-- Si ves una entidad con nombre como "Detalle[Algo]", "Intermedia", etc.
-- Esa entidad debe estar conectada a EXACTAMENTE 2 entidades principales
-- CADA conexión debe tener multiplicidad * (muchos)
-- EJEMPLO: DetalleVenta debe conectar con Venta Y con Producto
-- EJEMPLO: DetalleCompra debe conectar con Compra Y con Producto
-
-PARA CADA TABLA INTERMEDIA DETECTADA, crear 2 relaciones:
-- EntidadPrincipal1 → TablaIntermedia (multiplicidad 1..*)
-- EntidadPrincipal2 → TablaIntermedia (multiplicidad 1..*)
-- NO crear relación directa entre EntidadPrincipal1 y EntidadPrincipal2
-
-NOMBRES TÍPICOS DE TABLAS INTERMEDIAS:
-- Detalle + NombreEntidad: "DetalleVenta", "DetalleCompra", "DetallePedido"
-- Nombres compuestos: "EstudianteCurso", "UsuarioRol", "ProductoCategoria"
-- Palabras clave: "intermedia", "relacion", "inscripcion", "asociacion"
-
-CRITERIOS DE CLASIFICACIÓN:
-- ENTIDAD PRINCIPAL: Tiene atributos de negocio significativos, puede existir independientemente
-- TABLA INTERMEDIA: Principalmente contiene claves foráneas + algunos atributos adicionales
-
-PATRONES DE RELACIONES Y DETECCIÓN VISUAL:
-
-⚠️ CRUCIAL: IDENTIFICAR TIPO DE RELACIÓN POR ELEMENTOS VISUALES:
-
-1. **ASOCIACIÓN** (type: "association"):
-   - Línea simple/recta entre entidades
-   - Sin símbolos especiales en los extremos
-   - Puede tener multiplicidad (1, *, 1..*, 0..*)
-   - Es el tipo MÁS COMÚN en diagramas de clases
-
-2. **HERENCIA/GENERALIZACIÓN** (type: "inheritance"):
-   - Línea con FLECHA CON TRIÁNGULO VACÍO (hueco) ►
-   - El triángulo apunta hacia la clase padre/superclase
-   - Representa relación "es-un" (is-a)
-   - Ejemplos: Persona ← Empleado, Vehiculo ← Auto
-
-3. **COMPOSICIÓN** (type: "composition"):
-   - Línea con ROMBO NEGRO/RELLENO ♦ en un extremo
-   - Relación "parte-de" FUERTE (si se elimina el todo, se eliminan las partes)
-   - El rombo está en la clase "contenedora" 
-   - Ejemplos: Casa ♦─ Habitación, Auto ♦─ Motor
-
-4. **AGREGACIÓN** (type: "aggregation"):
-   - Línea con ROMBO BLANCO/VACÍO ◊ en un extremo
-   - Relación "parte-de" DÉBIL (las partes pueden existir independientemente)
-   - El rombo está en la clase "contenedora"
-   - Ejemplos: Universidad ◊─ Estudiante, Equipo ◊─ Jugador
-
-INSTRUCCIONES CRÍTICAS PARA DETECCIÓN:
-- EXAMINA CUIDADOSAMENTE los extremos de cada línea
-- BUSCA símbolos específicos: triángulos (►), rombos rellenos (♦), rombos vacíos (◊)
-- Si NO VES ningún símbolo especial → type: "association"
-- Si VES triángulo vacío/hueco → type: "inheritance" 
-- Si VES rombo negro/relleno → type: "composition"
-- Si VES rombo blanco/vacío → type: "aggregation"
-
-EJEMPLOS VISUALES A BUSCAR:
-- ASOCIACIÓN: ClaseA ------ ClaseB (línea simple)
-- HERENCIA: ClasePadre <---- ClaseHija (triángulo vacío)
-- COMPOSICIÓN: Todo [rombo relleno]------ Parte  
-- AGREGACIÓN: Contenedor [rombo vacío]------ Elemento
-
-REGLAS DE MAPEO:
-- Línea simple sin símbolos = "association"
-- Flecha con triángulo = "inheritance" 
-- Rombo negro/relleno = "composition"
-- Rombo blanco/vacío = "aggregation"
-- En caso de duda = "association" (más seguro)
-
-REGLAS CRÍTICAS PARA RELACIONES Y DIRECCIONALIDAD:
-- NUNCA crear relaciones bidireccionales duplicadas (A→B y B→A)
-- Cada línea del diagrama = UNA relación en el JSON
-- Para relaciones M:N intermedias: crear solo A→Intermedia y B→Intermedia (NO Intermedia→A ni Intermedia→B)
-- Direccionalidad: seguir la lógica semántica universal:
-
-PATRONES UNIVERSALES DE DIRECCIONALIDAD:
-1. CLASIFICACIÓN: Clasificador → Clasificado
-   * Ejemplos: Categoría → Producto, Tipo → Item, Clase → Elemento
-   
-2. AGREGACIÓN: Contenedor → Contenido  
-   * Ejemplos: Pedido → Detalle, Factura → Item, Proyecto → Tarea
-   
-3. JERARQUÍA: Superior → Subordinado
-   * Ejemplos: Empresa → Empleado, Departamento → Usuario
-   
-4. TEMPORALIDAD: Actor → Acción
-   * Ejemplos: Cliente → Venta, Usuario → Operación, Proveedor → Suministro
-   
-5. COMPOSICIÓN: Principal → Parte
-   * Ejemplos: Documento → Sección, Sistema → Módulo
-
-CORRECCIONES SEMÁNTICAS UNIVERSALES:
-- Entidad clasificadora (categoría, tipo, clase) → Entidad clasificada
-- Entidad principal → Entidad de detalle (que empiece con "Detalle")  
-- Actor (persona, usuario, cliente) → Acción (venta, compra, operación)
-- Contenedor (pedido, factura, documento) → Contenido (item, producto, sección)
-- Las multiplicidades deben reflejar la lógica del dominio
-
-VERIFICACIÓN OBLIGATORIA DE TIPOS DE RELACIÓN:
-- ¿Examinaste los EXTREMOS de cada línea buscando símbolos?
-- ¿Detectaste triángulos vacíos para herencia?
-- ¿Identificaste rombos rellenos para composición?
-- ¿Encontraste rombos vacíos para agregación?
-- ¿Clasificaste correctamente cada tipo de relación?
-- ¿Usaste "association" solo para líneas simples sin símbolos?
-
-VERIFICACIÓN OBLIGATORIA M:N:
-- ¿Detectaste todas las líneas con multiplicidad *?
-- ¿Identificaste correctamente las tablas intermedias?
-- ¿Las tablas intermedias conectan exactamente 2 entidades principales?
-- ¿Evitaste duplicar relaciones en ambas direcciones?
-- ⚠️ ¿CADA tabla "Detalle*" o intermedia tiene EXACTAMENTE 2 conexiones?
-- ¿Las direcciones de relaciones siguen patrones semánticos universales?
-- ¿Las multiplicidades son lógicamente consistentes?
-
-PATRONES UNIVERSALES DE VERIFICACIÓN:
-- Clasificador → Clasificado (Ej: Categoría → Item, Tipo → Elemento)
-- Contenedor → Contenido (Ej: Orden → Detalle, Documento → Sección)  
-- Actor → Acción (Ej: Usuario → Operación, Agente → Transacción)
-- Principal → Subordinado (Ej: Empresa → Empleado, Sistema → Módulo)
-- Temporal → Entidad (Ej: Período → Evento, Fecha → Registro)
-
-Formato requerido:
-{
-  "classes": [
-    {
-      "name": "NombreClase",
-      "attributes": [
-        {"name": "atributo", "type": "String", "visibility": "private"},
-        {"name": "otroAtributo", "type": "Integer", "visibility": "public"}
-      ],
-      "methods": []
-    }
-  ],
-  "relationships": [
-    {
-      "type": "association",
-      "source": "ClaseOrigen",
-      "target": "ClaseDestino", 
-      "multiplicity": "1..*"
-    }
-  ]
-}
-
-Reglas universales:
-- Visibilidad de atributos: Detectar desde el diagrama:
-  * "-" = "private" (por defecto si no hay símbolo)
-  * "+" = "public" 
-  * "#" = "protected"
-- Tipos: "String", "Integer", "Float", "Date", "Boolean" según corresponda
-- NO incluir atributos "id" - se asumen implícitamente
-- Para relaciones directas: crear una relación "association" con multiplicidad apropiada
-- Para relaciones M:N: crear relaciones separadas desde cada entidad principal hacia la tabla intermedia
-- ¡IMPORTANTE!: Una línea = una relación, evitar duplicados bidireccionales
-- ⚠️ CRÍTICO: Verificar que cada "Detalle*" tenga 2 conexiones
-- Analizar cuidadosamente las líneas y multiplicidades visibles en el diagrama`;
-
-  const headers = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${OPENAI_TOKEN}`,
-  };
-
-  const payload = {
-    model: 'gpt-4o-mini', // Modelo más económico
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: prompt,
-          },
-          {
-            type: 'image_url',
-            image_url: {
-              url: imageUrl,
-              detail: 'high',
-            },
-          },
-        ],
-      },
-    ],
-    max_tokens: 2000,
-    temperature: 0.1,
-  };
-
   console.log('🤖 Analizando imagen con OpenAI Vision...');
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetch(ANALYZE_IMAGE_FUNCTION_URL, {
     method: 'POST',
-    headers: headers,
-    body: JSON.stringify(payload),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+    body: JSON.stringify({ imageUrl }),
   });
 
   if (!response.ok) {
     const errorData = await response
       .json()
-      .catch(() => ({ error: { message: 'Error desconocido' } }));
-    throw new Error(`Error OpenAI: ${errorData.error?.message || response.statusText}`);
+      .catch(() => ({ error: 'Error desconocido' }));
+    throw new Error(`Error en Edge Function: ${errorData.error || response.statusText}`);
   }
 
   const result = await response.json();
@@ -989,20 +767,9 @@ Reglas universales:
   console.log(`💰 Costo estimado: $${cost.toFixed(6)} USD`);
   console.log(`🔢 Tokens usados: ${usage.total_tokens || 0}`);
 
-  // Parsear respuesta
-  let content = result.choices[0]?.message?.content || '';
-
-  // Limpiar markdown si existe
-  if (content.startsWith('```json')) {
-    content = content.replace('```json', '').replace('```', '').trim();
-  } else if (content.startsWith('```')) {
-    content = content.replace('```', '').strip();
-  }
+  const parsedData = result.data;
 
   try {
-    const parsedData = JSON.parse(content);
-
-    // 🔍 LOGGING DETALLADO PARA DEBUGGING
     console.log('📊 === RESPUESTA COMPLETA DE OPENAI ===');
     console.log('🏛️ Clases detectadas:');
     parsedData.classes?.forEach((cls: any, index: number) => {
@@ -1099,7 +866,7 @@ Reglas universales:
     return parsedData;
   } catch (error) {
     console.error('❌ Error parseando JSON:', error);
-    console.error('📄 Respuesta recibida:', content);
+    console.error('📄 Respuesta recibida:', JSON.stringify(parsedData));
     throw new Error('La respuesta de OpenAI no es un JSON válido');
   }
 }

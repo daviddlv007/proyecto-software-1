@@ -331,11 +331,6 @@ const BoardPage = () => {
     await saveDiagram();
   };
 
-  const updateNodeData = async (nodeId: string, updates: Partial<NodeType>) => {
-    updateNode(nodeId, updates as any);
-    await saveDiagram();
-  };
-
   // 🆕 Funciones para el Asistente UML
   const handleCreateNodeFromPrompt = async (newNode: NodeType) => {
     console.log('🎯 Creando nodo desde prompt:', newNode);

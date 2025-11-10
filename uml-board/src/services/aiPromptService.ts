@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NodeType, EdgeType } from '../utils/umlConstants';
 
-// Token OpenAI 
-const OPENAI_TOKEN = 'mi token aqui'; 
+// Configuración del proxy de OpenAI
+const PROXY_URL = 'https://izsllyjacdhfeoexwpvh.supabase.co/functions/v1/openai-proxy';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6c2xseWphY2RoZmVvZXh3cHZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEwODk2NjQsImV4cCI6MjA3NjY2NTY2NH0.VYW4TKIdKLj2JcL3lxOCTBT6QwOhMrG_P6WWFSAnRDM'; 
 
 export interface DiagramAction {
   type: 'create' | 'update' | 'delete';
@@ -121,9 +122,10 @@ Respuesta: [{"type":"create","target":"class","data":{"label":"Estudiante_Curso"
 Usuario: "Crear relación * a * entre extremo y NEGRA"
 Respuesta: [{"type":"create","target":"class","data":{"label":"extremo_NEGRA","attributes":[],"asociativa":true}},{"type":"create","target":"edge","data":{"sourceLabel":"extremo_NEGRA","targetLabel":"extremo","tipo":"asociacion","multiplicidadOrigen":"*","multiplicidadDestino":"1"}},{"type":"create","target":"edge","data":{"sourceLabel":"extremo_NEGRA","targetLabel":"NEGRA","tipo":"asociacion","multiplicidadOrigen":"*","multiplicidadDestino":"1"}}]`;
 
+  // Headers
   const headers = {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${OPENAI_TOKEN}`,
+    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
   };
 
   const payload = {
@@ -146,7 +148,7 @@ Respuesta: [{"type":"create","target":"class","data":{"label":"extremo_NEGRA","a
   console.log('📝 Prompt del usuario:', prompt);
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(PROXY_URL, {
       method: 'POST',
       headers: headers,
       body: JSON.stringify(payload),
@@ -213,5 +215,6 @@ Respuesta: [{"type":"create","target":"class","data":{"label":"extremo_NEGRA","a
 };
 
 export function validateOpenAIToken(): boolean {
-  return !!(OPENAI_TOKEN && OPENAI_TOKEN.startsWith('sk-') && OPENAI_TOKEN.length > 20);
+  // Token validation is now handled by the Supabase proxy
+  return true;
 }

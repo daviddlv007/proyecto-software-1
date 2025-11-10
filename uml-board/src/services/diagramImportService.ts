@@ -8,9 +8,9 @@ const supabaseKey =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3ZHVleHF6aGpvbHdmeHVwdmNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5ODc3NzAsImV4cCI6MjA3NjU2Mzc3MH0.WQiWHEYBzsT0LAa5N3quDDiZlYzfOVz7lY86ZF02RjI';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Token OpenAI hardcodeado
-const OPENAI_TOKEN =
-  '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';
+// Edge Function proxy para OpenAI (SOLO oculta el token)
+const OPENAI_PROXY_URL = 'https://izsllyjacdhfeoexwpvh.supabase.co/functions/v1/openai-proxy';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6c2xseWphY2RoZmVvZXh3cHZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEwODk2NjQsImV4cCI6MjA3NjY2NTY2NH0.VYW4TKIdKLj2JcL3lxOCTBT6QwOhMrG_P6WWFSAnRDM';
 
 // Tipos para el análisis OpenAI
 type OpenAIClass = {
@@ -934,11 +934,6 @@ Reglas universales:
 - ⚠️ CRÍTICO: Verificar que cada "Detalle*" tenga 2 conexiones
 - Analizar cuidadosamente las líneas y multiplicidades visibles en el diagrama`;
 
-  const headers = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${OPENAI_TOKEN}`,
-  };
-
   const payload = {
     model: 'gpt-4o-mini', // Modelo más económico
     messages: [
@@ -965,9 +960,13 @@ Reglas universales:
 
   console.log('🤖 Analizando imagen con OpenAI Vision...');
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  // CAMBIO: Usar edge function proxy en lugar de llamar directamente a OpenAI
+  const response = await fetch(OPENAI_PROXY_URL, {
     method: 'POST',
-    headers: headers,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    },
     body: JSON.stringify(payload),
   });
 

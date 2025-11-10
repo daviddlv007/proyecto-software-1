@@ -31,6 +31,7 @@ type Props = {
   ) => void;
   onDeleteAttribute: (nodeId: string, attrIdx: number) => void;
   onDeleteNode?: (id: string) => void;
+  isLocked?: boolean;
 };
 
 const nodeStyle = (n: NodeType, relationMode: boolean): React.CSSProperties => ({
@@ -95,6 +96,7 @@ const Node: React.FC<Props> = ({
   onEditAttribute,
   onDeleteAttribute,
   onDeleteNode,
+  isLocked = false,
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [showMultiplicityMenu, setShowMultiplicityMenu] = useState(false);
@@ -106,7 +108,7 @@ const Node: React.FC<Props> = ({
     <div
       style={nodeStyle(node, relationMode)}
       onMouseDown={e => {
-        if (!relationMode) {
+        if (!relationMode && !isLocked) {
           onMouseDown(e, node);
         }
       }}
@@ -123,7 +125,7 @@ const Node: React.FC<Props> = ({
       }}
     >
       {/* Botón eliminar clase */}
-      {hovered && onDeleteNode && (
+      {hovered && onDeleteNode && !isLocked && (
         <button
           onClick={e => {
             e.stopPropagation();
@@ -159,6 +161,7 @@ const Node: React.FC<Props> = ({
           type='text'
           value={node.label}
           onChange={e => onEditLabel(node.id, e.target.value)}
+          disabled={isLocked}
           style={{
             width: '96%',
             fontWeight: 'bold',
@@ -167,6 +170,8 @@ const Node: React.FC<Props> = ({
             border: 'none',
             background: 'transparent',
             outline: 'none',
+            cursor: isLocked ? 'not-allowed' : 'text',
+            opacity: isLocked ? 0.6 : 1,
           }}
         />
       </div>
@@ -189,6 +194,7 @@ const Node: React.FC<Props> = ({
             <select
               value={attr.scope}
               onChange={e => onEditAttribute(node.id, idx, 'scope', e.target.value)}
+              disabled={isLocked}
               style={selectStyle}
             >
               <option value='public'>+</option>
@@ -199,11 +205,13 @@ const Node: React.FC<Props> = ({
               type='text'
               value={attr.name}
               onChange={e => onEditAttribute(node.id, idx, 'name', e.target.value)}
+              disabled={isLocked}
               style={inputStyle}
             />
             <select
               value={attr.datatype}
               onChange={e => onEditAttribute(node.id, idx, 'datatype', e.target.value)}
+              disabled={isLocked}
               style={{ ...selectStyle, marginLeft: 4, maxWidth: 90 }}
             >
               <option value='Integer'>Integer</option>
@@ -212,7 +220,7 @@ const Node: React.FC<Props> = ({
               <option value='Date'>Date</option>
               <option value='String'>String</option>
             </select>
-            {hoveredAttr === idx && (
+            {hoveredAttr === idx && !isLocked && (
               <button
                 onClick={e => {
                   e.stopPropagation();
@@ -242,7 +250,7 @@ const Node: React.FC<Props> = ({
         ))}
       </div>
       {/* Botón agregar atributo - solo visible en hover */}
-      {hovered && (
+      {hovered && !isLocked && (
         <button
           onClick={e => {
             e.stopPropagation();
@@ -283,7 +291,7 @@ const Node: React.FC<Props> = ({
       )}
 
       {/* Botón crear relación - solo visible en hover */}
-      {hovered && (
+      {hovered && !isLocked && (
         <div style={{ position: 'absolute', bottom: 8, right: 8, zIndex: 1000 }}>
           <button
             onClick={e => {

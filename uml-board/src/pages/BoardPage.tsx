@@ -117,6 +117,10 @@ const BoardPage = ({ mode = 'host' }: { mode?: 'host' | 'guest' }) => {
   // Estado para el asistente UML
   const [isPromptOpen, setIsPromptOpen] = useState(false);
 
+  // Estado temporal para edición (evita conflictos con sincronización)
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+  const editTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Boards colaborativos desde Supabase
   const { boards, createBoard, deleteBoard, renameBoard } = useBoards();
   const [currentBoardId, setCurrentBoardId] = useState<string>('1');
@@ -528,8 +532,19 @@ const BoardPage = ({ mode = 'host' }: { mode?: 'host' | 'guest' }) => {
   };
 
   const editNodeLabel = async (id: string, newLabel: string) => {
-    await updateNode(id, { label: newLabel });
-    debouncedSave();
+    // Actualizar localmente de inmediato
+    updateNode(id, { label: newLabel } as any);
+    
+    // Limpiar timeout anterior
+    if (editTimeoutRef.current) {
+      clearTimeout(editTimeoutRef.current);
+    }
+    
+    // Guardar en Supabase después de un delay (debounce)
+    editTimeoutRef.current = setTimeout(async () => {
+      await saveDiagram();
+      setEditingNodeId(null);
+    }, 800);
   };
 
   const editAttribute = async (
@@ -545,8 +560,17 @@ const BoardPage = ({ mode = 'host' }: { mode?: 'host' | 'guest' }) => {
           idx === attrIdx ? { ...attr, [field === 'datatype' ? 'type' : field]: newValue } : attr
         ) || [];
 
-      await updateNode(nodeId, { attributes: updatedAttrs });
-      debouncedSave();
+      updateNode(nodeId, { attributes: updatedAttrs } as any);
+      
+      // Limpiar timeout anterior
+      if (editTimeoutRef.current) {
+        clearTimeout(editTimeoutRef.current);
+      }
+      
+      // Guardar con debounce
+      editTimeoutRef.current = setTimeout(async () => {
+        await saveDiagram();
+      }, 800);
     }
   };
 
@@ -1209,8 +1233,9 @@ const BoardPage = ({ mode = 'host' }: { mode?: 'host' | 'guest' }) => {
         <div style={sectionStyle}>
           <button
             onClick={addNode}
-            style={{ ...buttonStyle, background: '#1976d2', color: '#fff' }}
+            style={{ ...buttonStyle, background: isLocked() ? '#ccc' : '#1976d2', color: '#fff', cursor: isLocked() ? 'not-allowed' : 'pointer' }}
             title='Crear una nueva clase'
+            disabled={isLocked()}
           >
             ➕ Nueva Clase
           </button>
@@ -1218,10 +1243,14 @@ const BoardPage = ({ mode = 'host' }: { mode?: 'host' | 'guest' }) => {
           {/* Botón del Asistente UML */}
           <button
             onClick={() => {
+              if (isLocked()) {
+                alert('La pizarra está bloqueada por el anfitrión');
+                return;
+              }
               console.log('🤖 Abriendo Asistente UML');
               setIsPromptOpen(true);
             }}
-            style={{ ...buttonStyle, background: '#4caf50', color: '#fff' }}
+            style={{ ...buttonStyle, background: isLocked() ? '#ccc' : '#4caf50', color: '#fff', cursor: isLocked() ? 'not-allowed' : 'pointer' }}
             title='Asistente UML con IA'
           >
             ✨ Asistente UML
@@ -1231,11 +1260,12 @@ const BoardPage = ({ mode = 'host' }: { mode?: 'host' | 'guest' }) => {
             onClick={handleImportImage}
             style={{
               ...buttonStyle,
-              background: importing ? '#ccc' : '#8e24aa',
+              background: importing || isLocked() ? '#ccc' : '#8e24aa',
               color: '#fff',
-              opacity: importing ? 0.7 : 1,
+              opacity: importing || isLocked() ? 0.7 : 1,
+              cursor: importing || isLocked() ? 'not-allowed' : 'pointer',
             }}
-            disabled={importing}
+            disabled={importing || isLocked()}
             title='Importar diagrama desde imagen'
           >
             {importing ? '⏳ Importando...' : '📸 Importar Imagen'}
@@ -1372,6 +1402,7 @@ const BoardPage = ({ mode = 'host' }: { mode?: 'host' | 'guest' }) => {
             onEditAttribute={editAttribute}
             onDeleteAttribute={deleteAttribute}
             onDeleteNode={removeNodeAndEdges}
+            isLocked={isLocked()}
           />
         ))}
       </div>

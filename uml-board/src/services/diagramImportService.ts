@@ -10,7 +10,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // URL de la Edge Function para análisis de imágenes
 const ANALYZE_IMAGE_FUNCTION_URL = 'https://izsllyjacdhfeoexwpvh.supabase.co/functions/v1/analyze-diagram-image';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6c2xseWphY2RoZmVvZXh3cHZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzA1MTI0NjQsImV4cCI6MjA0NjA4ODQ2NH0.c7uoLAe2yN9_FNbBdm0u7m4h9MZxNwt21JVN7YQIhHI';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6c2xseWphY2RoZmVvZXh3cHZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEwODk2NjQsImV4cCI6MjA3NjY2NTY2NH0.VYW4TKIdKLj2JcL3lxOCTBT6QwOhMrG_P6WWFSAnRDM';
 
 // Tipos para el análisis OpenAI
 type OpenAIClass = {

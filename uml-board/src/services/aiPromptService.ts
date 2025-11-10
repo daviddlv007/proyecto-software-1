@@ -3,7 +3,7 @@ import type { NodeType, EdgeType } from '../utils/umlConstants';
 
 // URL de la Edge Function de Supabase
 const SUPABASE_FUNCTION_URL = 'https://izsllyjacdhfeoexwpvh.supabase.co/functions/v1/process-uml-prompt';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6c2xseWphY2RoZmVvZXh3cHZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzA1MTI0NjQsImV4cCI6MjA0NjA4ODQ2NH0.c7uoLAe2yN9_FNbBdm0u7m4h9MZxNwt21JVN7YQIhHI';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6c2xseWphY2RoZmVvZXh3cHZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEwODk2NjQsImV4cCI6MjA3NjY2NTY2NH0.VYW4TKIdKLj2JcL3lxOCTBT6QwOhMrG_P6WWFSAnRDM';
 
 export interface DiagramAction {
   type: 'create' | 'update' | 'delete';

@@ -931,17 +931,6 @@ const BoardPage = ({ mode = 'host' }: { mode?: 'host' | 'guest' }) => {
     }
   };
 
-  const handleCopyURL = async () => {
-    try {
-      const currentURL = window.location.href;
-      await navigator.clipboard.writeText(currentURL);
-      alert('✅ URL copiada al portapapeles');
-    } catch (error) {
-      console.error('Error copiando URL:', error);
-      alert('❌ Error al copiar URL');
-    }
-  };
-
   const handleClearBoard = async () => {
     const confirmed = window.confirm(
       '¿Estás seguro de que quieres limpiar toda la pizarra?\n\n' +

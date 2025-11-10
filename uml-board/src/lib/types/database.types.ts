@@ -9,18 +9,21 @@ export interface Database {
           name: string;
           diagram_id: string;
           created_at: string;
+          locked?: boolean;
         };
         Insert: {
           id: string;
           name: string;
           diagram_id: string;
           created_at?: string;
+          locked?: boolean;
         };
         Update: {
           id?: string;
           name?: string;
           diagram_id?: string;
           created_at?: string;
+          locked?: boolean;
         };
         Relationships: [
           {

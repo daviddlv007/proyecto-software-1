@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Button, Container, Paper, TextField, Typography } from '@mui/material';
 

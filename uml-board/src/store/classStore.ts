@@ -65,6 +65,9 @@ interface Store {
 // 🔴 Variable global para el canal de tiempo real (fuera del store para evitar re-renders)
 let realtimeChannel: RealtimeChannel | null = null;
 
+// 🔴 Variable para rastrear ediciones activas y evitar sobrescribir cambios locales
+let lastEditTimestamp: number = 0; // Timestamp de la última edición del usuario
+
 export const useClassStore = create<Store>((set, get) => ({
   nodes: [],
   edges: [],
@@ -97,6 +100,10 @@ export const useClassStore = create<Store>((set, get) => ({
   },
 
   updateNode: (id: string, data: Partial<ClassData>) => {
+    // 🔴 Marcar el momento de la edición para bloquear sync temporal
+    lastEditTimestamp = Date.now();
+    
+    // Actualizar localmente
     set(s => ({
       nodes: s.nodes.map((n: Node<ClassData>) =>
         n.id === id ? { ...n, data: { ...n.data, ...data } } : n
@@ -373,6 +380,13 @@ export const useClassStore = create<Store>((set, get) => ({
         payload => {
           console.log('🔄 Cambio colaborativo detectado:', payload);
 
+          // 🚫 IGNORAR sincronización si hubo una edición reciente (últimos 3 segundos)
+          const timeSinceLastEdit = Date.now() - lastEditTimestamp;
+          if (timeSinceLastEdit < 3000) {
+            console.log(`⏸️ Ignorando sync - edición activa hace ${timeSinceLastEdit}ms`);
+            return;
+          }
+
           if (payload.new) {
             const updatedDiagram = payload.new as Diagram;
             const updatedNodes: Node<ClassData>[] = (
@@ -443,5 +457,8 @@ export const useClassStore = create<Store>((set, get) => ({
       supabase.removeChannel(realtimeChannel);
       realtimeChannel = null;
     }
+    
+    // Reset timestamp
+    lastEditTimestamp = 0;
   },
 }));

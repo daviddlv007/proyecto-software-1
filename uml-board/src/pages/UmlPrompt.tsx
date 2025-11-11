@@ -12,6 +12,8 @@ interface UmlPromptProps {
   onCreateEdge: (edge: EdgeType) => Promise<void>;
   onUpdateNode: (nodeId: string, updates: Partial<NodeType>) => Promise<void>;
   onUpdateEdge: (edgeId: string, updates: Partial<EdgeType>) => Promise<void>;
+  onDeleteNode: (nodeId: string) => Promise<void>;
+  onDeleteEdge: (edgeId: string) => Promise<void>;
   existingNodes: NodeType[];
   existingEdges: EdgeType[];
 }
@@ -22,6 +24,8 @@ const UmlPrompt: React.FC<UmlPromptProps> = ({
   onCreateNode,
   onCreateEdge,
   onUpdateNode,
+  onDeleteNode,
+  onDeleteEdge,
   existingNodes,
   existingEdges,
 }) => {
@@ -204,7 +208,11 @@ const UmlPrompt: React.FC<UmlPromptProps> = ({
                 scope: action.data.scope as 'public' | 'private' | 'protected',
               },
             ];
-            await onUpdateNode(targetNode.id, { attributes: newAttributes });
+            // 🔴 IMPORTANTE: Preservar el label para evitar que se resetee a "Class"
+            await onUpdateNode(targetNode.id, { 
+              label: targetNode.label,
+              attributes: newAttributes 
+            });
             console.log('✅ Atributo agregado a:', targetNode.label);
           }
         } 
@@ -248,7 +256,50 @@ const UmlPrompt: React.FC<UmlPromptProps> = ({
           console.log('✅ Clase actualizada:', action.data.id);
         } 
         else if (action.type === 'delete' && action.target === 'class') {
-          console.log('🗑️ Eliminar clase:', action.data.id);
+          // Buscar clase por label o id
+          const nodeToDelete = existingNodes.find(n => 
+            n.id === action.data.id || n.label === action.data.label
+          );
+          if (nodeToDelete) {
+            await onDeleteNode(nodeToDelete.id);
+            console.log('🗑️ Clase eliminada:', nodeToDelete.label);
+          } else {
+            console.warn('⚠️ Clase no encontrada para eliminar:', action.data);
+          }
+        }
+        else if (action.type === 'delete' && action.target === 'attribute') {
+          // Eliminar atributo de una clase
+          const targetNode = existingNodes.find(n => 
+            n.id === action.data.classId || n.label === action.data.className
+          );
+          if (targetNode) {
+            const newAttributes = (targetNode.attributes || []).filter(attr => 
+              attr.name !== action.data.attributeName
+            );
+            // 🔴 IMPORTANTE: Preservar el label para evitar que se resetee a "Class"
+            await onUpdateNode(targetNode.id, { 
+              label: targetNode.label,
+              attributes: newAttributes 
+            });
+            console.log('🗑️ Atributo eliminado:', action.data.attributeName, 'de', targetNode.label);
+          } else {
+            console.warn('⚠️ Clase no encontrada para eliminar atributo:', action.data);
+          }
+        }
+        else if (action.type === 'delete' && action.target === 'edge') {
+          // Buscar relación por labels o id
+          const edgeToDelete = existingEdges.find(e => 
+            e.id === action.data.id || 
+            (action.data.sourceLabel && action.data.targetLabel && 
+             existingNodes.find(n => n.id === e.source)?.label === action.data.sourceLabel &&
+             existingNodes.find(n => n.id === e.target)?.label === action.data.targetLabel)
+          );
+          if (edgeToDelete) {
+            await onDeleteEdge(edgeToDelete.id);
+            console.log('🗑️ Relación eliminada:', edgeToDelete.id);
+          } else {
+            console.warn('⚠️ Relación no encontrada para eliminar:', action.data);
+          }
         }
       } catch (err) {
         console.error('❌ Error ejecutando acción:', action, err);

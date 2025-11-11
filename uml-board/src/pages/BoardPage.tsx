@@ -1440,6 +1440,8 @@ const BoardPage = ({ mode = 'host' }: { mode?: 'host' | 'guest' }) => {
         onCreateEdge={handleCreateEdgeFromPrompt}
         onUpdateNode={handleUpdateNodeFromPrompt}
         onUpdateEdge={handleUpdateEdgeFromPrompt}
+        onDeleteNode={removeNodeAndEdges}
+        onDeleteEdge={deleteEdge}
         existingNodes={nodes}
         existingEdges={edges.map(convertReactFlowToUMLEdge)}
       />

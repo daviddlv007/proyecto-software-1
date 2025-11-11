@@ -49,26 +49,44 @@ TIPOS DE ACCIONES DISPONIBLES:
    { type: 'update', target: 'class', data: { id: string, label?: string, attributes?: [...] } }
 
 3. Eliminar clase: 
-   { type: 'delete', target: 'class', data: { id: string } }
+   { type: 'delete', target: 'class', data: { id: string, label: string } }
 
 4. Agregar atributo a clase existente: 
    { type: 'create', target: 'attribute', data: { classId: string, name: string, datatype: string, scope: string } }
 
-5. Crear relación entre clases: 
+5. Eliminar atributo de una clase:
+   { type: 'delete', target: 'attribute', data: { classId: string, className: string, attributeName: string } }
+
+6. Crear relación entre clases: 
    { type: 'create', target: 'edge', data: { sourceLabel: string, targetLabel: string, tipo: 'asociacion'|'herencia'|'composicion'|'agregacion'|'dependencia', multiplicidadOrigen: '1'|'*', multiplicidadDestino: '1'|'*' } }
 
-6. Eliminar relación: 
-   { type: 'delete', target: 'edge', data: { id: string } }
+7. Eliminar relación: 
+   { type: 'delete', target: 'edge', data: { id?: string, sourceLabel?: string, targetLabel?: string } }
 
 REGLAS DE INTERPRETACIÓN:
 - "clase", "entidad", "tabla" → crear/modificar clase
+- "elimina", "borra", "quita", "remueve" + "clase" → eliminar clase
 - "atributo", "propiedad", "campo", "variable" → crear/modificar atributo
-- "hereda", "extiende", "es un" → relación de herencia (tipo: 'herencia')
-- "tiene muchos", "contiene" → relación de composición (tipo: 'composicion', multiplicidad 1:*)
-- "tiene uno", "posee" → relación de composición (tipo: 'composicion', multiplicidad 1:1)
-- "usa", "utiliza", "depende de" → relación de dependencia (tipo: 'dependencia')
+- "elimina", "borra", "quita" + "atributo" → eliminar atributo
+- "elimina", "borra", "quita" + "relación" → eliminar relación
+- "hereda", "extiende", "es un" → relación de herencia (tipo: 'herencia', multiplicidad: 1:1)
+- "usa", "utiliza", "depende de" → relación de dependencia (tipo: 'dependencia', multiplicidad: 1:1)
 - "se asocia con", "está relacionado" → relación de asociación (tipo: 'asociacion')
-- "muchos a muchos", "m:n", "* a *", "relación muchos" → SIEMPRE crear clase intermedia marcada como asociativa + dos relaciones de asociación (*:1) desde la intermedia hacia ambas clases
+- "muchos a muchos", "m:n", "* a *", "*:*" → SIEMPRE crear clase intermedia asociativa + dos relaciones (1:*) desde cada clase hacia la intermedia
+
+RECONOCIMIENTO DE CARDINALIDADES EN ASOCIACIONES/COMPOSICIONES/AGREGACIONES:
+- "tiene uno", "posee uno", "1 a 1", "1:1" → multiplicidad: 1:1
+- "tiene muchos", "posee muchos", "1 a muchos", "1:*", "1 a varios" → multiplicidad: 1:* (origen=1, destino=*)
+- "muchos a uno", "varios a uno", "*:1", "* a 1" → multiplicidad: *:1 (origen=*, destino=1)
+- "muchos a muchos", "varios a varios", "*:*", "* a *", "m:n" → crear tabla intermedia
+- "contiene", "compuesto por" → composición con multiplicidad 1:*
+- "agrega", "agregación de" → agregación con multiplicidad 1:*
+
+IMPORTANTE SOBRE MULTIPLICIDADES:
+- multiplicidadOrigen: cardinalidad desde la clase origen (source)
+- multiplicidadDestino: cardinalidad hacia la clase destino (target)
+- Ejemplo: "Usuario tiene muchos Pedidos" = Usuario(1) → Pedidos(*) = multiplicidadOrigen:'1', multiplicidadDestino:'*'
+- Ejemplo: "Muchos Productos pertenecen a una Categoría" = Productos(*) → Categoría(1) = multiplicidadOrigen:'*', multiplicidadDestino:'1'
 
 TIPOS DE DATOS VÁLIDOS:
 - String: textos, cadenas, varchar, char
@@ -107,11 +125,35 @@ Respuesta: [{"type":"create","target":"edge","data":{"sourceLabel":"Usuario","ta
 Usuario: "Producto tiene una relación de composición con Categoría"
 Respuesta: [{"type":"create","target":"edge","data":{"sourceLabel":"Categoria","targetLabel":"Producto","tipo":"composicion","multiplicidadOrigen":"1","multiplicidadDestino":"*"}}]
 
+Usuario: "Usuario tiene muchos Pedidos"
+Respuesta: [{"type":"create","target":"edge","data":{"sourceLabel":"Usuario","targetLabel":"Pedido","tipo":"asociacion","multiplicidadOrigen":"1","multiplicidadDestino":"*"}}]
+
+Usuario: "Muchos Productos pertenecen a una Categoría"
+Respuesta: [{"type":"create","target":"edge","data":{"sourceLabel":"Producto","targetLabel":"Categoria","tipo":"asociacion","multiplicidadOrigen":"*","multiplicidadDestino":"1"}}]
+
+Usuario: "Persona tiene una Dirección"
+Respuesta: [{"type":"create","target":"edge","data":{"sourceLabel":"Persona","targetLabel":"Direccion","tipo":"asociacion","multiplicidadOrigen":"1","multiplicidadDestino":"1"}}]
+
+Usuario: "Crea una asociación 1 a muchos entre Cliente y Pedido"
+Respuesta: [{"type":"create","target":"edge","data":{"sourceLabel":"Cliente","targetLabel":"Pedido","tipo":"asociacion","multiplicidadOrigen":"1","multiplicidadDestino":"*"}}]
+
+Usuario: "Asociación de muchos a uno entre Empleado y Departamento"
+Respuesta: [{"type":"create","target":"edge","data":{"sourceLabel":"Empleado","targetLabel":"Departamento","tipo":"asociacion","multiplicidadOrigen":"*","multiplicidadDestino":"1"}}]
+
+Usuario: "Relación 1:1 entre Usuario y Perfil"
+Respuesta: [{"type":"create","target":"edge","data":{"sourceLabel":"Usuario","targetLabel":"Perfil","tipo":"asociacion","multiplicidadOrigen":"1","multiplicidadDestino":"1"}}]
+
 Usuario: "Crea Pedido con fecha tipo Date y total tipo Float, luego Pedido tiene muchos DetallePedido"
 Respuesta: [{"type":"create","target":"class","data":{"label":"Pedido","attributes":[{"name":"fecha","datatype":"Date","scope":"private"},{"name":"total","datatype":"Float","scope":"private"}]}},{"type":"create","target":"class","data":{"label":"DetallePedido","attributes":[]}},{"type":"create","target":"edge","data":{"sourceLabel":"Pedido","targetLabel":"DetallePedido","tipo":"composicion","multiplicidadOrigen":"1","multiplicidadDestino":"*"}}]
 
 Usuario: "Elimina la clase Usuario"
-Respuesta: [{"type":"delete","target":"class","data":{"id":"node_usuario_id"}}]
+Respuesta: [{"type":"delete","target":"class","data":{"id":"node_usuario_id","label":"Usuario"}}]
+
+Usuario: "Borra el atributo email de Usuario"
+Respuesta: [{"type":"delete","target":"attribute","data":{"classId":"node_usuario_id","className":"Usuario","attributeName":"email"}}]
+
+Usuario: "Elimina la relación entre Pedido y DetallePedido"
+Respuesta: [{"type":"delete","target":"edge","data":{"sourceLabel":"Pedido","targetLabel":"DetallePedido"}}]
 
 Usuario: "Cambia el nombre de Cliente a Comprador"
 Respuesta: [{"type":"update","target":"class","data":{"id":"node_cliente_id","label":"Comprador"}}]

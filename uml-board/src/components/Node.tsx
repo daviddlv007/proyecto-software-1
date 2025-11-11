@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { NodeType } from '../utils/umlConstants';
 import { NODE_WIDTH, NODE_HEIGHT, ATTR_HEIGHT } from '../utils/umlConstants';
 
@@ -98,11 +98,18 @@ const Node: React.FC<Props> = ({
   onDeleteNode,
   isLocked = false,
 }) => {
+  // 🔴 Estado local para edición de label (evita guardados constantes)
+  const [localLabel, setLocalLabel] = useState(node.label);
   const [showMenu, setShowMenu] = useState(false);
   const [showMultiplicityMenu, setShowMultiplicityMenu] = useState(false);
   const [selectedRelationType, setSelectedRelationType] = useState<string | null>(null);
   const [hoveredAttr, setHoveredAttr] = useState<number | null>(null);
   const [hovered, setHovered] = useState(false);
+
+  // 🔄 Sincronizar label local cuando el nodo cambie desde fuera (sync colaborativo)
+  useEffect(() => {
+    setLocalLabel(node.label);
+  }, [node.label]);
 
   return (
     <div
@@ -159,8 +166,19 @@ const Node: React.FC<Props> = ({
       <div style={{ width: '100%', textAlign: 'center', fontWeight: 'bold', marginTop: 8 }}>
         <input
           type='text'
-          value={node.label}
-          onChange={e => onEditLabel(node.id, e.target.value)}
+          value={localLabel}
+          onChange={e => setLocalLabel(e.target.value)}
+          onBlur={() => {
+            // Solo guardar si el valor cambió
+            if (localLabel !== node.label) {
+              onEditLabel(node.id, localLabel);
+            }
+          }}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              e.currentTarget.blur(); // Guardar al presionar Enter
+            }
+          }}
           disabled={isLocked}
           style={{
             width: '96%',
